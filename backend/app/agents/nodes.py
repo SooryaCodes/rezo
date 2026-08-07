@@ -16,6 +16,7 @@ from ..db.models import Dispute, Evidence, Precedent
 from ..db.session import session_scope
 from ..evidence import capture as capture_mod
 from ..evidence import forensics
+from ..llm import offline
 from ..llm.client import get_client
 from ..retrieval.policy import retrieve_clauses
 from ..tools import shop
@@ -107,6 +108,14 @@ def intake_node(state: dict) -> dict:
                 {"claim_type": claim_type, "value": claim_value,
                  "language": result.get("language", "en")})
 
+    # An unclear complaint is a question, not a decision. Running the whole
+    # pipeline on "the product is wrong" and escalating is how a support tool
+    # teaches people it does not listen.
+    needs_clarification = claim_type == "other"
+    if needs_clarification:
+        events.emit(did, "interaction", "gate",
+                    "Claim is unclear, asking the buyer rather than guessing", {})
+
     delta = {
         "order": order,
         "claim_type": claim_type,
@@ -116,13 +125,42 @@ def intake_node(state: dict) -> dict:
         "messages": [{"role": "agent", "agent": "interaction",
                       "content": result.get("reply", ""),
                       "at": datetime.now(timezone.utc).isoformat()}],
-        "status": "gathering_evidence" if result.get("needs_evidence") else "deciding",
+        "status": ("clarifying" if needs_clarification
+                   else "gathering_evidence" if result.get("needs_evidence")
+                   else "deciding"),
         "fraud": {"raw_signals": {"injection_detected":
                                   bool(result.get("injection_detected"))}},
         "usage": _usage_snapshot(),
     }
     _persist({**state, **delta}, claim_type=claim_type, claim_value=claim_value,
              status=delta["status"])
+
+    if needs_clarification:
+        # Pause here. The buyer's next message re-enters this node with the
+        # extra detail, and the classifier gets another go at it.
+        reply = interrupt({
+            "type": "clarification_needed",
+            "dispute_id": did,
+            "question": result.get("reply", ""),
+        })
+        follow_up = (reply or {}).get("message", "")
+        if follow_up:
+            # Give the classifier the answer plus the original words: "the
+            # sleeve is torn" and "the product is wrong" together say more than
+            # either alone.
+            resolved = offline.classify_claim(f"{message} {follow_up}")
+            events.emit(did, "interaction", "finding",
+                        f"Claim clarified as {resolved}", {"claim_type": resolved})
+            after = {**delta,
+                     "messages": delta["messages"] + [
+                         {"role": "buyer", "content": follow_up,
+                          "at": datetime.now(timezone.utc).isoformat()}],
+                     "claim_type": resolved,
+                     "status": ("deciding" if resolved == "not_delivered"
+                                else "gathering_evidence")}
+            _persist({**state, **after}, claim_type=resolved,
+                     status=after["status"])
+            return after
     return delta
 
 

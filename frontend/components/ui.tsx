@@ -29,12 +29,16 @@ const VARIANTS: Record<Variant, string> = {
     "hover:shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_2px_4px_rgba(17,17,20,.2),0_10px_24px_rgba(17,17,20,.16)] " +
     "active:translate-y-[1px] active:shadow-[inset_0_2px_5px_rgba(0,0,0,.24)] " +
     "disabled:bg-surface-3 disabled:text-ink-4",
+  // A white button on a white card is invisible. The fill is a step down from
+  // the surface it sits on and the border is the strong one, so the control has
+  // an edge no matter what is behind it.
   secondary:
-    "bg-surface-1 border-line text-ink shadow-[0_1px_2px_rgba(17,17,20,.04)] " +
-    "hover:border-line-strong hover:-translate-y-[1px] hover:shadow-[0_3px_10px_rgba(17,17,20,.07)] " +
+    "bg-surface-2 border-line-strong text-ink shadow-[0_1px_2px_rgba(17,17,20,.05)] " +
+    "hover:bg-surface-3 hover:border-ink-4 hover:-translate-y-[1px] " +
+    "hover:shadow-[0_3px_10px_rgba(17,17,20,.08)] " +
     "active:translate-y-[1px] active:shadow-none " +
-    "disabled:text-ink-4 disabled:border-line-subtle",
-  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink active:scale-[.975] disabled:text-ink-4",
+    "disabled:bg-surface-2 disabled:text-ink-4 disabled:border-line",
+  ghost: "text-ink-2 hover:bg-surface-3 hover:text-ink active:scale-[.975] disabled:text-ink-4",
   danger:
     "bg-bad-soft text-bad border-bad-line hover:bg-bad hover:text-white " +
     "hover:-translate-y-[1px] active:translate-y-[1px]",

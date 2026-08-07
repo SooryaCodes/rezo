@@ -89,8 +89,24 @@ def record_approval(dispute_id: str, approved: bool, by: str,
 
 
 def add_message(dispute_id: str, content: str, role: str = "buyer") -> dict:
-    """A follow-up message on an open case: recorded, and surfaced to the seller
-    if the case is already waiting on a human."""
+    """A follow-up message.
+
+    If the case is paused waiting for the buyer to explain what went wrong, this
+    is the answer it was waiting for: resume the graph with it rather than just
+    filing it. Otherwise it is a note on an open case.
+    """
+    with session_scope() as db:
+        row = db.get(Dispute, dispute_id)
+        waiting_for_answer = row is not None and row.status == "clarifying"
+
+    if waiting_for_answer and role == "buyer":
+        shop.append_audit(dispute_id, _store_of(dispute_id), "buyer",
+                          "clarification_provided", {"message": content[:400]})
+        events.emit(dispute_id, "interaction", "finding",
+                    "Buyer answered the clarifying question", {})
+        result = get_engine().resume(dispute_id, {"message": content})
+        return _envelope(dispute_id, result)
+
     with session_scope() as db:
         row = db.get(Dispute, dispute_id)
         if row is None:

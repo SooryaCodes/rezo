@@ -121,9 +121,33 @@ def test_prompt_injection_is_treated_as_data_and_moves_no_money():
             RefundLedger.dispute_id == opened["dispute_id"]).all()
     assert ledger == [], "an injected instruction must never move money"
 
-    # the case still proceeds normally rather than derailing
-    assert opened["status"] in ("awaiting_evidence", "deciding",
+    # The message is an instruction, not a complaint, so there is nothing to
+    # act on: the agent asks what actually went wrong instead of derailing.
+    assert opened["status"] in ("clarifying", "awaiting_evidence", "deciding",
                                 "awaiting_seller_approval")
+
+
+def test_an_unclear_complaint_is_asked_about_rather_than_guessed_at():
+    """The failure mode this replaces: running the whole pipeline on four vague
+    words and escalating, which teaches people the assistant does not listen."""
+    opened = disputes.open_dispute("st_rehana", "ORD-2044", "the product is wrong")
+
+    assert opened["status"] == "clarifying"
+    assert opened["awaiting"] == "clarification_needed"
+    assert opened["decision"] == {}, "nothing is decided before we understand it"
+    reply = opened["messages"][-1]["content"].lower()
+    assert "?" in reply, "the buyer is asked a question"
+
+    # their answer resumes the same case rather than starting a new one
+    answered = disputes.add_message(opened["dispute_id"],
+                                    "the sleeve is torn on the left side")
+    assert answered["claim_type"] == "damage"
+    assert answered["awaiting"] == "evidence_required"
+
+    challenge = (answered.get("pending") or {}).get("challenge", {})
+    done = disputes.submit_evidence(opened["dispute_id"], media=[AUTHENTIC],
+                                    source="live_capture", nonce=challenge["nonce"])
+    assert done["status"] in ("closed", "awaiting_seller_approval")
 
 
 def test_injection_raises_the_fraud_score():
