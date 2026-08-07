@@ -160,7 +160,7 @@ export function TiltCard({
 export function Aurora({ className }: { className?: string }) {
   return (
     <div aria-hidden className={clsx("pointer-events-none absolute inset-0 overflow-hidden", className)}>
-      <div className="absolute inset-0 bg-[linear-gradient(160deg,#eef5f3_0%,#f3f0fb_45%,#fdf3ec_100%)] dark:bg-[linear-gradient(160deg,#0d1a19_0%,#141426_45%,#1c1712_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(160deg,#eef5f3_0%,#f3f0fb_45%,#fdf3ec_100%)]" />
       <div className="absolute -top-[22%] -left-[12%] w-[62%] h-[62%] rounded-full blur-[70px] opacity-[0.55] animate-[drift_18s_ease-in-out_infinite]"
            style={{ background: "radial-gradient(closest-side, #14b8a6, transparent 72%)" }} />
       <div className="absolute top-[8%] right-[-14%] w-[58%] h-[58%] rounded-full blur-[80px] opacity-[0.45] animate-[drift_22s_ease-in-out_infinite_reverse]"

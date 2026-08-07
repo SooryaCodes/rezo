@@ -9,8 +9,10 @@ import type { Config } from "tailwindcss";
  * the button colour it would stop meaning anything.
  */
 const config: Config = {
-  // One theme, committed to. A half-maintained dark mode is worse than none,
-  // and every surface here was chosen for light.
+  // One theme, committed to. This selector never matches, so a stray `dark:`
+  // utility is inert instead of firing off the visitor's OS preference — which
+  // is exactly what once turned this page dark while its text stayed dark too.
+  darkMode: ["selector", "[data-theme='dark']"],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {

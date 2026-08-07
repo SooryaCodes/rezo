@@ -1,7 +1,7 @@
 /**
  * Rezo embeddable widget.
  *
- *   <script src="https://cdn.rezo.app/widget.js"
+ *   <script src="https://rezo.zevora.io/widget.js"
  *           data-rezo-key="pk_live_xxx"
  *           data-rezo-store="st_xxx"
  *           data-rezo-order="ORD-1042"

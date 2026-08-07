@@ -78,6 +78,12 @@ export default function Home() {
     <>
       <ScrollProgress />
 
+      <div className="relative">
+      {/* the field sits behind the nav as well, so the page does not start
+          with a white band above a floating pill */}
+      <div className="absolute inset-0 mesh grain pointer-events-none" aria-hidden />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-bg pointer-events-none" aria-hidden />
+
       {/* ── floating pill nav ──────────────────────────────────────────── */}
       <div className="sticky top-4 z-40 px-4">
         <nav className="max-w-[980px] mx-auto rounded-full border border-line bg-[color-mix(in_srgb,var(--surface-1)_82%,transparent)]
@@ -103,11 +109,8 @@ export default function Home() {
       </div>
 
       {/* ── hero ───────────────────────────────────────────────────────── */}
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0 mesh grain pointer-events-none" aria-hidden />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-bg pointer-events-none" aria-hidden />
-
-        <div className="relative max-w-shell mx-auto px-6 pt-20 pb-20 md:pt-28">
+      <header className="relative">
+        <div className="relative max-w-shell mx-auto px-6 pt-16 pb-20 md:pt-20">
           <div className="grid lg:grid-cols-[1fr_460px] gap-14 items-center">
             <Reveal y={18}>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tightest max-w-[13ch]">
@@ -139,7 +142,7 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-20 pt-10 border-t border-line-subtle">
               {[
                 { node: <CountUp to={90} suffix="s" />, l: "From complaint to refund" },
-                { node: <CountUp to={4} prefix="~₹" />, l: "What a decision costs us" },
+                { node: <CountUp to={0.05} decimals={2} prefix="~$" />, l: "What a decision costs us" },
                 { node: <CountUp to={100} suffix="%" />, l: "Decisions with a cited clause" },
                 { node: <CountUp to={3} suffix=" in 10" />, l: "Retail fraud attempts now AI-made" },
               ].map((m) => (
@@ -152,6 +155,7 @@ export default function Home() {
           </Reveal>
         </div>
       </header>
+      </div>
 
       {/* ── how it works ───────────────────────────────────────────────── */}
       <section id="how" className="border-t border-line-subtle scroll-mt-24">
@@ -198,7 +202,7 @@ export default function Home() {
                 <Badge className="ml-auto">the entire front-end change</Badge>
               </div>
               <pre className="p-5 overflow-x-auto font-mono text-sm text-ink-2 leading-relaxed">
-{`<script src="https://cdn.rezo.app/widget.js"
+{`<script src="https://rezo.zevora.io/widget.js"
         data-rezo-key="pk_live_..."
         data-rezo-order={order.id} async />`}
               </pre>
@@ -414,11 +418,11 @@ export default function Home() {
                     on the shop.
                   </p>
                   <div className="mt-6 flex items-baseline gap-1.5">
-                    <span className="text-4xl font-bold tracking-tightest">₹9</span>
+                    <span className="text-4xl font-bold tracking-tightest">$0.30</span>
                     <span className="text-base text-ink-3">per settled case</span>
                   </div>
                   <p className="text-sm text-ink-3 mt-1.5">
-                    Against roughly ₹150&ndash;400 of someone&rsquo;s time doing it by hand.
+                    Against roughly $2&ndash;5 of someone&rsquo;s time doing the same case by hand.
                   </p>
                   <LinkButton href="/signup" variant="primary" block className="mt-6">
                     Start free, upgrade when it earns it
@@ -447,7 +451,7 @@ export default function Home() {
                 price: "Free", unit: "for your first 50 cases", cta: "Start free",
                 features: ["All eight agents", "Live evidence capture",
                            "Policy in your own words, cited back",
-                           "Automatic limit up to ₹500"] },
+                           "Automatic limit up to $20"] },
               { name: "Scale", note: "Marketplaces and platforms",
                 price: "Let's talk", unit: "priced on volume", cta: "Contact us",
                 features: ["Many stores under one roof", "Platform-level arbitration",

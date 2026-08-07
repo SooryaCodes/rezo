@@ -113,7 +113,7 @@ export default function OnboardingPage() {
   };
 
   const snippet =
-    `<script src="https://cdn.rezo.app/widget.js"\n` +
+    `<script src="https://rezo.zevora.io/widget.js"\n` +
     `        data-rezo-key="${session.store.publishable_key ?? "pk_live_..."}"\n` +
     `        data-rezo-order="{{ order.id }}" async></script>`;
 
@@ -124,7 +124,7 @@ export default function OnboardingPage() {
         <Aurora />
         <div className="relative z-10"><Brand /></div>
 
-        <div className="relative z-10 rounded-xl border border-white/60 bg-white/70 dark:bg-white/10 dark:border-white/15 backdrop-blur-xl p-6 shadow-[0_8px_32px_rgba(24,24,27,.10)]">
+        <div className="relative z-10 rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl p-6 shadow-[0_8px_32px_rgba(24,24,27,.10)]">
           <Eyebrow>Setting up {session.store.name}</Eyebrow>
           <ol className="list-none p-0 mt-4 flex flex-col gap-3">
             {STEPS.map((label, i) => {
@@ -136,7 +136,7 @@ export default function OnboardingPage() {
                   <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold shrink-0 transition-colors duration-base ${
                     done ? "bg-accent text-white"
                          : active ? "bg-action text-action-ink"
-                                  : "bg-white/60 dark:bg-white/10 text-ink-3"}`}>
+                                  : "bg-white/60 text-ink-3"}`}>
                     {done ? "✓" : n}
                   </span>
                   <span className={active ? "font-medium" : "text-ink-2"}>{label}</span>

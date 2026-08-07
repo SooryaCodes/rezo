@@ -42,7 +42,7 @@ export function AsideCard({ quote, attribution, points }: {
   quote?: string; attribution?: string; points?: string[];
 }) {
   return (
-    <div className="rounded-xl border border-white/60 bg-white/70 dark:bg-white/10 dark:border-white/15 backdrop-blur-xl p-6 max-w-[420px] shadow-[0_8px_32px_rgba(24,24,27,.10)]">
+    <div className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl p-6 max-w-[420px] shadow-[0_8px_32px_rgba(24,24,27,.10)]">
       {quote && (
         <>
           <p className="text-md leading-relaxed text-ink">{quote}</p>

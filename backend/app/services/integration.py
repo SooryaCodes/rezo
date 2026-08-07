@@ -118,7 +118,7 @@ def _probe(base: str, secret: str, store_id: str, name: str, method: str,
 
 def widget_snippet(store) -> str:
     return (
-        '<script src="https://cdn.rezo.app/widget.js"\n'
+        '<script src="https://rezo.zevora.io/widget.js"\n'
         f'        data-rezo-key="{store.publishable_key}"\n'
         '        data-rezo-order="{{ order.id }}"\n'
         '        async></script>'

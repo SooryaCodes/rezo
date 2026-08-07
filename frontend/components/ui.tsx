@@ -472,17 +472,4 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 /* ══ brand ═════════════════════════════════════════════════════════════════ */
 
-export function Brand({ href = "/", label = true, className }: {
-  href?: string; label?: boolean; className?: string;
-}) {
-  return (
-    <a href={href} className={clsx(
-      "flex items-center gap-2 no-underline text-ink font-bold tracking-tight text-md", className)}>
-      <span className="w-6 h-6 rounded-lg bg-action text-action-ink grid place-items-center text-xs font-bold
-                       shadow-[inset_0_1px_0_rgba(255,255,255,.18)]">
-        R
-      </span>
-      {label && "Rezo"}
-    </a>
-  );
-}
+export { Logo as Brand } from "./Logo";

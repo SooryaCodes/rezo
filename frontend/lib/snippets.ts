@@ -17,7 +17,7 @@ export const FRONTEND_SNIPPET: Record<PlatformId, { file: string; code: string; 
     file: "order-confirmation.html",
     note: "Put it anywhere in the page that renders an order. The launcher is fixed, so its position does not depend on where the tag sits.",
     code: `<!-- Rezo: one line, on any page that shows an order -->
-<script src="https://cdn.rezo.app/widget.js"
+<script src="https://rezo.zevora.io/widget.js"
         data-rezo-key="{PUBLISHABLE_KEY}"
         data-rezo-store="{STORE_ID}"
         data-rezo-order="ORD-1042"
@@ -34,7 +34,7 @@ export default function OrderPage({ order }) {
       {/* your order UI */}
 
       <Script
-        src="https://cdn.rezo.app/widget.js"
+        src="https://rezo.zevora.io/widget.js"
         strategy="afterInteractive"
         data-rezo-key={process.env.NEXT_PUBLIC_REZO_KEY}
         data-rezo-store="{STORE_ID}"
@@ -48,7 +48,7 @@ export default function OrderPage({ order }) {
     file: "sections/main-order.liquid",
     note: "Shopify exposes the order object in the customer order template, so the id comes straight from Liquid.",
     code: `{% comment %} Rezo: customer order page {% endcomment %}
-<script src="https://cdn.rezo.app/widget.js"
+<script src="https://rezo.zevora.io/widget.js"
         data-rezo-key="{PUBLISHABLE_KEY}"
         data-rezo-store="{STORE_ID}"
         data-rezo-order="{{ order.name | remove: '#' }}"
@@ -60,7 +60,7 @@ export default function OrderPage({ order }) {
     code: `add_action( 'woocommerce_view_order', function ( $order_id ) {
   $order = wc_get_order( $order_id );
   printf(
-    '<script src="https://cdn.rezo.app/widget.js"
+    '<script src="https://rezo.zevora.io/widget.js"
              data-rezo-key="%s" data-rezo-store="%s"
              data-rezo-order="%s" async></script>',
     esc_attr( REZO_PUBLISHABLE_KEY ),
@@ -276,7 +276,7 @@ model.
 Add one script tag to every page that renders a single order. It injects a
 "Report an issue" launcher and opens the dispute flow in an isolated iframe.
 
-    <script src="https://cdn.rezo.app/widget.js"
+    <script src="https://rezo.zevora.io/widget.js"
             data-rezo-key="${publishableKey}"
             data-rezo-store="${storeId}"
             data-rezo-order="<THE ORDER ID>"
