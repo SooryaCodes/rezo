@@ -141,6 +141,29 @@ def signup(email: str, password: str, name: str, store_name: str,
             "store": {"id": store_id, "name": store_name, "category": category}}
 
 
+def signup_verified(email: str, name: str, store_name: str,
+                    category: str = "general") -> dict:
+    """Create the workspace for an address a one-time code has just proven."""
+    return signup(email, secrets.token_urlsafe(24), name, store_name, category)
+
+
+def signin_verified(email: str) -> dict:
+    """Start a session for an address a one-time code has just proven."""
+    email = (email or "").strip().lower()
+    with session_scope() as db:
+        account = db.scalar(select(Account).where(Account.email == email))
+        if account is None:
+            raise AuthError("No account for that address")
+        token = _issue_session(db, account.id)
+        store = db.get(Store, account.store_id)
+        return {"token": token,
+                "account": {"id": account.id, "email": account.email,
+                            "name": account.name, "store_id": account.store_id,
+                            "onboarding_step": account.onboarding_step},
+                "store": {"id": store.id, "name": store.name,
+                          "category": store.category} if store else {}}
+
+
 def signin(email: str, password: str) -> dict:
     email = (email or "").strip().lower()
     with session_scope() as db:

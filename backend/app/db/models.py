@@ -229,3 +229,21 @@ class Session(Base):
     account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class LoginCode(Base):
+    """A one-time email code.
+
+    Stored hashed with a fixed attempt budget: a six digit code is only safe if
+    guessing it is bounded, so the row dies after five wrong tries.
+    """
+
+    __tablename__ = "login_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(160), index=True)
+    code_hash: Mapped[str] = mapped_column(String(128))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    consumed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)

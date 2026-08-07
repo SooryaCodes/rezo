@@ -154,6 +154,13 @@ export const api = {
   // ── auth ──────────────────────────────────────────────────────────────
   signup: (b: { email: string; password: string; name: string; store_name: string; category: string }) =>
     post<{ token: string; account: Account; store: Store }>("/auth/signup", b),
+  requestCode: (email: string) =>
+    post<{ sent: boolean; email: string; is_new_account: boolean;
+           expires_in_minutes: number; delivery: string; local_code?: string }>(
+      "/auth/otp/request", { email }),
+  verifyCode: (b: { email: string; code: string; name?: string;
+                    store_name?: string; category?: string }) =>
+    post<{ token: string; account: Account; store: Store }>("/auth/otp/verify", b),
   signin: (b: { email: string; password: string }) =>
     post<{ token: string; account: Account; store: Store }>("/auth/signin", b),
   sample: (store_id = "st_rehana") =>

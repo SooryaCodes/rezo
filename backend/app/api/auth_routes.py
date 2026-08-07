@@ -5,8 +5,9 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from ..services import accounts
+from ..services import accounts, otp
 from ..services.accounts import AuthError
+from ..services.otp import OtpError
 
 router = APIRouter()
 
@@ -48,6 +49,38 @@ async def signin(body: SigninBody):
         return await run_in_threadpool(accounts.signin, body.email, body.password)
     except AuthError as exc:
         raise HTTPException(401, str(exc))
+
+
+class OtpRequestBody(BaseModel):
+    email: str
+
+
+@router.post("/otp/request")
+async def otp_request(body: OtpRequestBody):
+    """Send a one-time code. Tells the caller whether this address is new, so
+    the next screen knows to ask for a store name."""
+    try:
+        return await run_in_threadpool(otp.request_code, body.email)
+    except OtpError as exc:
+        raise HTTPException(400, str(exc))
+
+
+class OtpVerifyBody(BaseModel):
+    email: str
+    code: str
+    name: str = ""
+    store_name: str = ""
+    category: str = "general"
+
+
+@router.post("/otp/verify")
+async def otp_verify(body: OtpVerifyBody):
+    try:
+        return await run_in_threadpool(
+            otp.verify_code, body.email, body.code, body.name,
+            body.store_name, body.category)
+    except (OtpError, AuthError) as exc:
+        raise HTTPException(400, str(exc))
 
 
 class SampleBody(BaseModel):
