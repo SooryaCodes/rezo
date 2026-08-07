@@ -139,7 +139,13 @@ def get_buyer_history_across_stores(buyer_id: str) -> dict:
 
 
 def find_reused_evidence(content_hash: str, exclude_dispute: str = "") -> list[dict]:
-    """Has this exact image been submitted before, at any store?"""
+    """Has this exact image been submitted before, anywhere on the platform?
+
+    Only counts as reuse when it appears on a different order or from a
+    different buyer. The same person photographing the same broken item again
+    for the same order is a resubmission, not fraud, and treating it as fraud
+    would punish honest buyers who retry after a bad upload.
+    """
     from ..db.models import Evidence
     if not content_hash:
         return []
@@ -147,7 +153,24 @@ def find_reused_evidence(content_hash: str, exclude_dispute: str = "") -> list[d
         rows = db.scalars(
             select(Evidence).where(Evidence.content_hash == content_hash,
                                    Evidence.dispute_id != exclude_dispute)).all()
-        return [{"dispute_id": r.dispute_id, "at": r.created_at.isoformat()} for r in rows]
+        if not rows:
+            return []
+        current = db.get(Dispute, exclude_dispute) if exclude_dispute else None
+        matches = []
+        for r in rows:
+            other = db.get(Dispute, r.dispute_id)
+            if other is None:
+                continue
+            same_claim = (current is not None
+                          and other.order_id == current.order_id
+                          and other.buyer_id == current.buyer_id)
+            if same_claim:
+                continue
+            matches.append({"dispute_id": r.dispute_id,
+                            "store_id": other.store_id,
+                            "order_id": other.order_id,
+                            "at": r.created_at.isoformat()})
+        return matches
 
 
 # --------------------------------------------------------------------------
