@@ -12,8 +12,11 @@ from app.db.models import Dispute, RefundLedger
 from app.seed import seed
 from app.services import disputes
 
-AUTHENTIC = "data/media/samples/evidence_authentic.jpg"
-GENERATED = "data/media/samples/evidence_generated.png"
+# Resolved from configuration rather than the working directory, so the suite
+# passes from the repo root and from backend/ alike.
+from app.config import settings as _settings
+AUTHENTIC = str(_settings.media_dir / "samples" / "evidence_authentic.jpg")
+GENERATED = str(_settings.media_dir / "samples" / "evidence_generated.png")
 
 
 @pytest.fixture(scope="module", autouse=True)
