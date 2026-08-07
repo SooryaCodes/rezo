@@ -10,6 +10,7 @@ import { api, streamEvents, type AgentEvent, type Dispute, type DisputeRow } fro
 import { rupees, titleCase } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
 import { Badge, Card, Eyebrow, Panel, Select, Skeleton } from "@/components/ui";
+import { CaseRunner } from "@/components/CaseRunner";
 
 type NodeState = "idle" | "live" | "done" | "frozen" | "blocked";
 type AgentNodeData = { label: string; role: string; state: NodeState; detail: string };
@@ -91,6 +92,8 @@ export default function ConsolePage() {
   }, []);
 
   useEffect(() => {
+    // Only auto-select on first load; once a case is chosen, whether by the
+    // picker or by the runner, leave it alone.
     if (!caseId && cases.length) setCaseId(cases[0].dispute_id);
   }, [cases, caseId]);
 
@@ -171,7 +174,8 @@ export default function ConsolePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tighter">Agent console</h1>
           <p className="text-ink-2 mt-1">
-            The graph below is the graph in the engine, node for node.
+            Pick a case below and watch it run. The graph is the graph in the engine,
+            node for node.
           </p>
         </div>
         <Select
@@ -187,7 +191,15 @@ export default function ConsolePage() {
         />
       </header>
 
-      <div className="grid xl:grid-cols-[1fr_380px] gap-5 items-start">
+      <CaseRunner
+        onStarted={(id) => { setCaseId(id); }}
+        onFinished={(d) => {
+          setDispute(d);
+          api.disputes().then(setCases).catch(() => {});
+        }}
+      />
+
+      <div className="grid xl:grid-cols-[1fr_380px] gap-5 items-start mt-5">
         <div>
           <Panel
             title={dispute

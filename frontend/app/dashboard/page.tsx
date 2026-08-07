@@ -11,6 +11,7 @@ import {
   Badge, Button, Card, EmptyState, Eyebrow, Panel, Select, Sheet, Skeleton, useToast,
 } from "@/components/ui";
 import { IntegrationPanel } from "@/components/IntegrationPanel";
+import { Walkthrough, type Facts } from "@/components/Walkthrough";
 import { PolicyPanel } from "@/components/PolicyPanel";
 
 function outcomeTone(outcome: string | null) {
@@ -57,6 +58,13 @@ function DashboardInner() {
 
   const needsYou = (rows ?? []).filter((r) => r.status === "awaiting_seller_approval").length;
 
+  const facts: Facts = {
+    hasPolicy: true,                       // provisioned at signup, always present
+    hasDisputes: (rows ?? []).length > 0,
+    hasResolved: (rows ?? []).some((r) => r.status === "closed"),
+    hasApproved: (rows ?? []).some((r) => r.status === "closed" && r.escalation_level > 0),
+  };
+
   const open = async (id: string) => {
     try { setSelected(await api.dispute(id)); }
     catch (e) { toast(e instanceof Error ? e.message : "Could not open that case", "err"); }
@@ -102,6 +110,7 @@ function DashboardInner() {
     <AppShell active={tab} badge={needsYou}>
       {tab === "disputes" && (
         <>
+          <Walkthrough facts={facts} />
           <header className="flex items-end justify-between gap-4 mb-5">
             <div>
               <h1 className="text-2xl font-bold tracking-tighter">Disputes</h1>
