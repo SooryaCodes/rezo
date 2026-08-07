@@ -24,7 +24,8 @@ def _new_id() -> str:
 
 
 def open_dispute(store_id: str, order_id: str, message: str,
-                 buyer_id: str | None = None, opened_by: str = "buyer") -> dict:
+                 buyer_id: str | None = None, opened_by: str = "buyer",
+                 claim_hint: str | None = None) -> dict:
     """Create the case and run it until it needs something from someone."""
     order = shop.get_order(store_id, order_id)
     buyer_id = buyer_id or (order.get("buyer") or {}).get("id", "")
@@ -56,6 +57,11 @@ def open_dispute(store_id: str, order_id: str, message: str,
         "status": "open",
         "escalation_level": 0,
     }
+    if claim_hint:
+        # The watchdog opens cases from courier telemetry rather than a buyer's
+        # words, so it states the claim type instead of leaving it to be read
+        # out of prose that was never written by a person.
+        initial["claim_hint"] = claim_hint
     result = get_engine().start(initial)
     return _envelope(dispute_id, result)
 

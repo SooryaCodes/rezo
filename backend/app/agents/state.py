@@ -97,6 +97,7 @@ class DisputeState(TypedDict, total=False):
     messages: Annotated[list[dict], operator.add]
     language: str
     claim_type: ClaimType
+    claim_hint: str
     claim_value: float
     order: dict
 

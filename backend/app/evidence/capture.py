@@ -99,6 +99,51 @@ def issue_challenge(dispute_id: str, order: dict, claim_type: str) -> dict:
     }
 
 
+def materialise(source_path, target_path, vary: bool) -> None:
+    """Place a demo sample on disk as if it had just been captured.
+
+    A real camera never produces two byte-identical files, so a live capture
+    gets a fresh variant with its metadata preserved. An upload is copied
+    verbatim, because the whole point of that path is that the buyer may be
+    submitting a file they already had, possibly one already used elsewhere.
+    """
+    import shutil
+
+    if not vary:
+        shutil.copyfile(source_path, target_path)
+        return
+
+    from PIL import Image
+
+    from datetime import datetime, timezone
+
+    img = Image.open(source_path)
+    fmt = img.format
+    exif = img.getexif()
+    rgb = img.convert("RGB")
+    pixels = rgb.load()
+
+    # Sensor noise: a patch rather than a single pixel, because JPEG
+    # quantisation would swallow a one-pixel change and the two files would
+    # hash identically, which reuse detection would then read as fraud.
+    ox = random.randint(0, max(0, rgb.width - 20))
+    oy = random.randint(0, max(0, rgb.height - 20))
+    for dx in range(16):
+        for dy in range(16):
+            x, y = min(ox + dx, rgb.width - 1), min(oy + dy, rgb.height - 1)
+            r, g, b = pixels[x, y]
+            jitter = random.randint(-14, 14)
+            pixels[x, y] = (max(0, min(255, r + jitter)),
+                            max(0, min(255, g + jitter)),
+                            max(0, min(255, b + jitter)))
+    exif[306] = datetime.now(timezone.utc).strftime("%Y:%m:%d %H:%M:%S")
+
+    if fmt == "JPEG":
+        rgb.save(target_path, "JPEG", quality=90, exif=exif)
+    else:
+        rgb.save(target_path, fmt or "PNG")
+
+
 def active_session(dispute_id: str) -> dict | None:
     """The live challenge for this case, if one is still valid.
 

@@ -88,6 +88,10 @@ def intake_node(state: dict) -> dict:
         context={"message": message, "order": order})
 
     claim_type = result.get("claim_type", "other")
+    if claim_type == "other" and state.get("claim_hint"):
+        # Cases opened by the watchdog carry an explicit type: the "message" is
+        # courier telemetry, not something a person wrote.
+        claim_type = state["claim_hint"]
     item_value = order["items"][0]["price"] if order.get("items") else order["total"]
     claim_value = float(order["total"] if len(order.get("items", [])) <= 1 else item_value)
 
