@@ -209,6 +209,31 @@ def sample_session(store_id: str = "st_rehana") -> dict:
                           "category": store.category}}
 
 
+def _rebuild_store(db, account: Account) -> Store:
+    """Re-provision a workspace for an account whose store has vanished."""
+    store = Store(
+        id=account.store_id,
+        name="Your store",
+        category="general",
+        auto_approve_cap=500.0,
+        fraud_threshold=0.6,
+        capabilities={"gateway_refund": True, "courier_pickup": False,
+                      "restock": False, "upi_payout": True, "cod_only": False},
+        connector="local",
+        onboarded=False,
+        publishable_key=_key("pk", account.store_id),
+        secret_key=_key("sk", account.store_id),
+    )
+    db.add(store)
+    db.add(PolicyPack(store_id=account.store_id, version="v1",
+                      effective_from=datetime.now(timezone.utc),
+                      clauses=starter_clauses("general")))
+    # Back to setup, so they name the store and set their own limit.
+    account.onboarding_step = 1
+    db.flush()
+    return store
+
+
 def resolve(token: str) -> dict:
     if not token:
         raise AuthError("Not signed in")
@@ -226,11 +251,12 @@ def resolve(token: str) -> dict:
             raise AuthError("This account no longer exists")
         store = db.get(Store, account.store_id)
         if store is None:
-            # A sample workspace can be reset out from under its session. Fail
-            # cleanly so the client signs out rather than showing a dashboard
-            # wired to a store that is not there.
-            db.delete(session)
-            raise AuthError("That workspace is no longer available")
+            # The account is real; its store went missing. Stranding someone
+            # outside an account they legitimately own is the worst possible
+            # answer, so rebuild the workspace and put them back at setup. The
+            # old store's data is gone either way — this at least returns the
+            # door key.
+            store = _rebuild_store(db, account)
         return {"account": {"id": account.id, "email": account.email,
                             "name": account.name, "store_id": account.store_id,
                             "onboarding_step": account.onboarding_step,
