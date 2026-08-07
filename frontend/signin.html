@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Rezo</title>
+<link rel="stylesheet" href="/styles/app.css">
+<style>
+  body { display: grid; place-items: center; min-height: 100vh; padding: var(--s5); }
+  .box { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: var(--s4); }
+  .err { color: var(--danger); font-size: var(--t-sm); }
+</style>
+</head>
+<body>
+<div class="box">
+  <a class="brand" href="/" style="justify-content:center"><span class="brand-mark">R</span> Rezo</a>
+
+  <div class="card">
+    <h1 style="font-size:var(--t-xl)">Sign in</h1>
+    <p class="muted small" style="margin-top:4px">Welcome back.</p>
+
+    <form id="form" class="col" style="gap:var(--s4);margin-top:var(--s5)">
+      <div class="field"><label class="label" for="email">Email</label>
+        <input class="input" id="email" type="email" required autocomplete="email"></div>
+      <div class="field"><label class="label" for="password">Password</label>
+        <input class="input" id="password" type="password" required autocomplete="current-password"></div>
+      <div class="err hide" id="error"></div>
+      <button class="btn btn-primary btn-block" id="submit" type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <p class="small dim" style="text-align:center">New here?
+    <a href="/signup.html" style="color:var(--accent)">Create an account</a>
+    · <a href="#" id="sample" style="color:var(--accent)">try a sample store</a></p>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const form = document.getElementById("form");
+const error = document.getElementById("error");
+const submit = document.getElementById("submit");
+
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  error.classList.add("hide");
+  submit.disabled = true;
+  submit.textContent = "Signing in…";
+  try {
+    const res = await fetch("/api/auth/signin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not sign you in");
+    localStorage.setItem("rezo-token", data.token);
+    localStorage.setItem("rezo-store", data.account.store_id);
+    location.href = data.account.onboarding_step < 99 ? "/onboarding.html" : "/dashboard.html";
+  } catch (err) {
+    error.textContent = err.message;
+    error.classList.remove("hide");
+    submit.disabled = false;
+    submit.textContent = "Sign in";
+  }
+};
+
+document.getElementById("sample").onclick = async (e) => {
+  e.preventDefault();
+  const res = await fetch("/api/auth/sample", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ store_id: "st_rehana" }),
+  });
+  const data = await res.json();
+  localStorage.setItem("rezo-token", data.token);
+  localStorage.setItem("rezo-store", data.store.id);
+  location.href = "/dashboard.html";
+};
+</script>
+</body>
+</html>

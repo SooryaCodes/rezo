@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Report an issue</title>
+<link rel="stylesheet" href="/styles/app.css">
+<style>
+  body { background: var(--surface-1); }
+  .widget { display: flex; flex-direction: column; height: 100dvh; max-width: 460px; margin: 0 auto;
+            border-left: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle); }
+  .w-head { padding: 10px var(--s4); border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: var(--s3); background: var(--surface-1);
+            position: sticky; top: 0; z-index: 5; }
+  .thumb { width: 34px; height: 34px; border-radius: var(--r); object-fit: cover;
+           background: var(--surface-2); border: 1px solid var(--border-subtle); flex: none; }
+  .w-body { flex: 1; overflow-y: auto; padding: var(--s4); display: flex;
+            flex-direction: column; gap: var(--s3); }
+  .w-foot { border-top: 1px solid var(--border-subtle); padding: var(--s3) var(--s4);
+            display: flex; gap: var(--s2); background: var(--surface-1); }
+
+  .bubble { max-width: 86%; padding: 9px 12px; border-radius: var(--r-lg); font-size: var(--t-base);
+            line-height: 1.5; white-space: pre-wrap; }
+  .bubble.agent { background: var(--surface-2); align-self: flex-start; border-bottom-left-radius: var(--r-sm); }
+  .bubble.buyer { background: var(--action); color: var(--action-ink); align-self: flex-end;
+                  border-bottom-right-radius: var(--r-sm); }
+
+  /* progress that says what is happening, instead of a spinner that does not */
+  .steps { display: flex; flex-direction: column; gap: 1px; background: var(--border-subtle);
+           border: 1px solid var(--border-subtle); border-radius: var(--r-md); overflow: hidden; }
+  .step { display: flex; align-items: center; gap: var(--s2); padding: 8px 11px;
+          background: var(--surface-1); font-size: var(--t-sm); }
+  .step .tick { width: 14px; text-align: center; color: var(--text-4); flex: none; }
+  .step.done .tick { color: var(--success); }
+  .step.live .tick { color: var(--accent); }
+  .step.live { background: var(--accent-soft); }
+
+  .stage { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+           background: var(--surface-2); }
+  .stage-video { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #000; }
+  .stage-guide { padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: 6px;
+                 border-top: 1px solid var(--border); background: var(--surface-1); }
+  .instruction { font-size: var(--t-md); font-weight: var(--fw-medium); }
+  .countdown { font-variant-numeric: tabular-nums; }
+
+  .decision { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+  .decision-head { padding: var(--s4); background: var(--accent-soft); display: flex;
+                   flex-direction: column; gap: 3px; }
+  .decision-amount { font-size: var(--t-2xl); font-weight: var(--fw-bold); letter-spacing: -0.03em;
+                     font-variant-numeric: tabular-nums; }
+  .clause { margin: var(--s3) var(--s4) var(--s4); padding: 10px 12px; border-left: 2px solid var(--accent);
+            background: var(--surface-2); border-radius: 0 var(--r) var(--r) 0; font-size: var(--t-sm);
+            color: var(--text-2); }
+  .clause b { color: var(--text); font-weight: var(--fw-semibold); }
+  .shots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .shots img { width: 54px; height: 54px; border-radius: var(--r-sm); object-fit: cover;
+               border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="widget">
+  <div class="w-head">
+    <img id="thumb" class="thumb" alt="">
+    <div class="grow">
+      <div class="strong" id="itemTitle">Loading…</div>
+      <div class="tiny dim" id="orderMeta"></div>
+    </div>
+    <span class="badge badge-live" id="liveBadge"><span class="dot"></span> Rezo</span>
+  </div>
+
+  <div class="w-body" id="body">
+    <div class="skeleton" style="width:70%"></div>
+    <div class="skeleton" style="width:45%"></div>
+  </div>
+
+  <div class="w-foot" id="foot">
+    <input class="input grow" id="composer" placeholder="Describe what went wrong…" autocomplete="off">
+    <button class="btn btn-primary" id="send">Send</button>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const ORDER_ID = params.get("order") || "ORD-2041";
+const STORE_ID = params.get("store") || "st_rehana";
+
+const body = document.getElementById("body");
+const composer = document.getElementById("composer");
+const sendBtn = document.getElementById("send");
+
+let order = null, disputeId = null, stopStream = null, challenge = null;
+let captureStream = null, capturedFrames = [], stepIndex = 0, countdownTimer = null;
+
+/* ── boot ──────────────────────────────────────────────────────────────── */
+(async function boot() {
+  try {
+    order = await API.order(ORDER_ID);
+  } catch (err) {
+    body.innerHTML = `<div class="empty"><div class="empty-glyph">!</div>
+      <div class="strong">We couldn't load this order</div>
+      <p class="small dim">${escapeHtml(err.message)}</p></div>`;
+    return;
+  }
+  const item = order.items[0] || {};
+  document.getElementById("thumb").src = "/media/samples/" + (item.image || "").split("/").pop();
+  document.getElementById("itemTitle").textContent = item.title || "Your order";
+  document.getElementById("orderMeta").textContent =
+    `${order.order_id} · ${rupees(order.total)} · ${order.status === "delivered"
+      ? "delivered " + timeAgo(order.delivered_at) : titleCase(order.status)}`;
+
+  body.innerHTML = "";
+  addBubble("agent", `Hi ${(order.buyer.name || "there").split(" ")[0]}. I can see your ${item.title}.
+What went wrong with it?`);
+})();
+
+/* ── chat ──────────────────────────────────────────────────────────────── */
+function addBubble(role, text) {
+  const el = document.createElement("div");
+  el.className = "bubble " + role;
+  el.textContent = text;
+  body.appendChild(el);
+  body.scrollTop = body.scrollHeight;
+  return el;
+}
+
+function addBlock(html) {
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  body.appendChild(el);
+  body.scrollTop = body.scrollHeight;
+  return el;
+}
+
+sendBtn.onclick = send;
+composer.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+
+async function send() {
+  const text = composer.value.trim();
+  if (!text) return;
+  composer.value = "";
+  addBubble("buyer", text);
+  setComposer(false);
+
+  try {
+    if (!disputeId) {
+      const result = await API.openDispute({ store_id: STORE_ID, order_id: ORDER_ID, message: text });
+      disputeId = result.dispute_id;
+      startStatus();
+      stopStream = streamEvents(disputeId, handleEvents);
+      render(result);
+    } else {
+      render(await API.message(disputeId, text));
+    }
+  } catch (err) {
+    toast(err.message, "err");
+    setComposer(true);
+  }
+}
+
+function setComposer(enabled) {
+  composer.disabled = !enabled;
+  sendBtn.disabled = !enabled;
+  document.getElementById("foot").style.opacity = enabled ? "1" : "0.5";
+}
+
+/* ── live status: the agents' own events, not a spinner ────────────────── */
+let statusBox = null;
+const LABELS = {
+  interaction: "Understanding the claim",
+  evidence: "Checking the evidence",
+  policy: "Checking the store policy",
+  fraud: "Reviewing the account",
+  resolution: "Deciding the outcome",
+  guardrail: "Applying limits",
+  escalation: "Asking the seller",
+  execution: "Processing",
+};
+
+function startStatus() {
+  statusBox = addBlock(`<div class="steps" id="statusSteps"></div>`).querySelector(".steps");
+}
+
+function handleEvents(events) {
+  if (!statusBox) return;
+  for (const ev of events) {
+    const label = LABELS[ev.agent];
+    if (!label) continue;
+    let row = statusBox.querySelector(`[data-agent="${ev.agent}"]`);
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "step live";
+      row.dataset.agent = ev.agent;
+      row.innerHTML = `<span class="tick">●</span><span class="grow">${label}</span>
+                       <span class="tiny dim detail"></span>`;
+      statusBox.appendChild(row);
+    }
+    if (ev.kind === "finding" || ev.kind === "decision" || ev.kind === "gate") {
+      row.classList.remove("live"); row.classList.add("done");
+      row.querySelector(".tick").textContent = "✓";
+      row.querySelector(".detail").textContent = shortDetail(ev);
+    }
+  }
+  body.scrollTop = body.scrollHeight;
+}
+
+function shortDetail(ev) {
+  if (ev.agent === "evidence" && ev.data.flags) return "";
+  if (ev.agent === "policy" && ev.message.startsWith("Clause")) return ev.message.split(":")[0];
+  if (ev.agent === "fraud") return "";
+  return "";
+}
+
+/* ── render whatever the case needs next ───────────────────────────────── */
+function render(state) {
+  (state.messages || []).filter((m) => m.role === "agent" && !m._shown).forEach((m) => {
+    if (m.content) addBubble("agent", m.content);
+    m._shown = true;
+  });
+
+  if (state.awaiting === "evidence_required" || state.status === "awaiting_evidence") {
+    challenge = (state.pending && state.pending.challenge) || state.capture;
+    if (challenge && challenge.steps) showCaptureStage();
+    return;
+  }
+  if (state.status === "awaiting_seller_approval" || state.status === "awaiting_platform_review") {
+    showPending(state);
+    return;
+  }
+  if (state.status === "closed") showDecision(state);
+}
+
+/* ── capture stage ─────────────────────────────────────────────────────── */
+function showCaptureStage() {
+  setComposer(false);
+  stepIndex = 0; capturedFrames = [];
+
+  const block = addBlock(`
+    <div class="stage" id="stage">
+      <video id="cam" class="stage-video" playsinline muted autoplay></video>
+      <canvas id="canvas" class="hide"></canvas>
+      <div class="stage-guide">
+        <div class="eyebrow">Step <span id="stepNo">1</span> of ${challenge.steps.length}
+          · <span class="countdown" id="countdown"></span></div>
+        <div class="instruction" id="instruction">${escapeHtml(challenge.steps[0])}</div>
+        <p class="tiny dim">Your camera opens here and we ask for this in the moment, so a photo
+          saved earlier cannot answer it.</p>
+        <div class="row" style="margin-top:4px">
+          <button class="btn btn-primary grow" id="shoot">Capture step 1</button>
+        </div>
+        <div class="row" id="fallback" style="margin-top:2px">
+          <button class="btn btn-ghost btn-sm grow" id="useReal">No camera: use a real photo</button>
+          <button class="btn btn-ghost btn-sm grow" id="useFake">Use an AI-generated photo</button>
+        </div>
+      </div>
+    </div>`);
+
+  const video = block.querySelector("#cam");
+  startCountdown(block.querySelector("#countdown"));
+
+  navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+    .then((stream) => { captureStream = stream; video.srcObject = stream; })
+    .catch(() => {
+      video.style.display = "none";
+      block.querySelector("#shoot").disabled = true;
+      block.querySelector("#shoot").textContent = "Camera unavailable";
+    });
+
+  block.querySelector("#shoot").onclick = () => captureFrame(block);
+  block.querySelector("#useReal").onclick = () => submitSample("evidence_authentic.jpg", "live_capture");
+  block.querySelector("#useFake").onclick = () => submitSample("evidence_generated.png", "upload");
+}
+
+function startCountdown(el) {
+  clearInterval(countdownTimer);
+  const deadline = new Date(challenge.expires_at).getTime();
+  const tick = () => {
+    const left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+    el.textContent = `expires in ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+    if (left <= 0) clearInterval(countdownTimer);
+  };
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+function captureFrame(block) {
+  const video = block.querySelector("#cam");
+  const canvas = block.querySelector("#canvas");
+  canvas.width = video.videoWidth || 720;
+  canvas.height = video.videoHeight || 960;
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.toBlob((blob) => {
+    capturedFrames.push(new File([blob], `frame_${stepIndex + 1}.jpg`, { type: "image/jpeg" }));
+    stepIndex += 1;
+    if (stepIndex >= challenge.steps.length) {
+      stopCamera();
+      submitFrames(capturedFrames);
+      return;
+    }
+    block.querySelector("#stepNo").textContent = stepIndex + 1;
+    block.querySelector("#instruction").textContent = challenge.steps[stepIndex];
+    block.querySelector("#shoot").textContent = `Capture step ${stepIndex + 1}`;
+  }, "image/jpeg", 0.9);
+}
+
+function stopCamera() {
+  clearInterval(countdownTimer);
+  if (captureStream) captureStream.getTracks().forEach((t) => t.stop());
+  captureStream = null;
+}
+
+async function submitFrames(files) {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  form.append("source", "live_capture");
+  form.append("nonce", challenge.nonce || "");
+  await postEvidence(form, "Verifying what you captured…");
+}
+
+async function submitSample(sample, source) {
+  stopCamera();
+  const form = new FormData();
+  form.append("sample", sample);
+  form.append("source", source);
+  if (source === "live_capture") form.append("nonce", challenge.nonce || "");
+  await postEvidence(form, source === "upload"
+    ? "Checking the file you uploaded…" : "Verifying what you captured…");
+}
+
+async function postEvidence(form, note) {
+  document.getElementById("stage")?.remove();
+  addBubble("agent", note);
+  try {
+    render(await API.submitEvidence(disputeId, form));
+  } catch (err) {
+    toast(err.message, "err");
+    setComposer(true);
+  }
+}
+
+/* ── outcomes ──────────────────────────────────────────────────────────── */
+function showPending(state) {
+  setComposer(true);
+  const hours = state.status === "awaiting_platform_review" ? 4 : 2;
+  addBlock(`<div class="card card-tight" style="border-color:var(--warn)">
+      <div class="row" style="gap:6px"><span class="badge badge-warn">Being reviewed</span></div>
+      <p class="small" style="margin-top:8px">This one is above what I can settle on my own, so a
+      person is looking at it now. You'll hear back within about ${hours} hours, and everything
+      I checked is attached for them.</p>
+    </div>`);
+}
+
+function showDecision(state) {
+  setComposer(true);
+  const d = state.decision || {};
+  const p = state.policy || {};
+  const refund = state.refund;
+  const paid = d.outcome === "full_refund" || d.outcome === "partial_refund";
+
+  addBlock(`
+    <div class="decision">
+      <div class="decision-head">
+        <span class="eyebrow">${paid ? "Refund approved" : titleCase(d.outcome || "Updated")}</span>
+        ${paid ? `<div class="decision-amount">${rupees(d.amount)}</div>` : ""}
+        <div class="small">${escapeHtml(d.rationale || "")}</div>
+      </div>
+      ${p.clause_id ? `<div class="clause">
+          <b>Clause ${escapeHtml(p.clause_id)}</b> — ${escapeHtml(p.clause_title || "")}<br>
+          ${escapeHtml((p.clause_text || "").slice(0, 220))}${(p.clause_text || "").length > 220 ? "…" : ""}
+        </div>` : ""}
+      ${refund ? `<div class="clause" style="border-left-color:var(--success)">
+          Sent to your original payment method via ${escapeHtml(refund.method.replace("_", " "))}.
+          Reference <span class="mono">${escapeHtml(refund.reference)}</span>.
+        </div>` : ""}
+    </div>`);
+
+  if ((state.evidence_files || []).length) {
+    addBlock(`<div class="col" style="gap:6px">
+        <span class="eyebrow">What you showed us</span>
+        <div class="shots">${state.evidence_files.map((f) =>
+          `<img src="/media/${escapeHtml(f.path.split("/").pop())}" alt="evidence">`).join("")}</div>
+      </div>`);
+  }
+
+  addBlock(`<button class="btn btn-secondary btn-block" id="human">Something still wrong? Talk to a person</button>`)
+    .querySelector("#human").onclick = () => {
+      addBubble("agent", "A person will pick this up and reply here. Your case number is " + disputeId + ".");
+    };
+
+  if (stopStream) stopStream();
+}
+</script>
+</body>
+</html>

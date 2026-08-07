@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start free — Rezo</title>
+<link rel="stylesheet" href="/styles/app.css">
+<style>
+  body { display: grid; grid-template-columns: 1fr 460px; min-height: 100vh; }
+  .pitch { background: var(--surface-1); border-right: 1px solid var(--border-subtle);
+           padding: var(--s7) var(--s8); display: flex; flex-direction: column; gap: var(--s6); }
+  .pitch h2 { font-size: clamp(22px, 2.4vw, 30px); letter-spacing: -0.03em; line-height: 1.2;
+              max-width: 18ch; }
+  .point { display: flex; gap: var(--s3); }
+  .point .m { color: var(--success); flex: none; }
+  .point p { color: var(--text-2); font-size: var(--t-base); }
+  .point b { color: var(--text); font-weight: var(--fw-medium); }
+  .form { padding: var(--s7) var(--s6); display: flex; flex-direction: column;
+          justify-content: center; gap: var(--s4); max-width: 400px; width: 100%; margin: 0 auto; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+  .err { color: var(--danger); font-size: var(--t-sm); }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; } .pitch { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="pitch">
+  <a class="brand" href="/"><span class="brand-mark">R</span> Rezo</a>
+  <h2>Your disputes, settled before you've finished reading them.</h2>
+  <div class="col" style="gap:var(--s4)">
+    <div class="point"><span class="m">✓</span><p><b>Three minutes to set up.</b>
+      Answer a few questions and we compile the policy your agents will cite.</p></div>
+    <div class="point"><span class="m">✓</span><p><b>Starts cautious.</b>
+      A new store resolves only small claims on its own until you raise the limit.</p></div>
+    <div class="point"><span class="m">✓</span><p><b>Nothing is hidden.</b>
+      Every decision carries the clause, the evidence and a full audit trail.</p></div>
+    <div class="point"><span class="m">✓</span><p><b>Free for your first 50 cases.</b>
+      No card, and no charge for a case that comes to you.</p></div>
+  </div>
+  <div class="card card-tight" style="margin-top:auto">
+    <p class="small muted">"Two of our own orders sat in dispute limbo for 25 days last month.
+      One parcel was neither delivered nor returned, so no refund could ever trigger.
+      That is the failure we built this for."</p>
+    <p class="tiny dim" style="margin-top:8px">Why Rezo exists</p>
+  </div>
+</div>
+
+<div class="form">
+  <div>
+    <h1 style="font-size:var(--t-2xl)">Create your account</h1>
+    <p class="muted" style="margin-top:6px">Already have one?
+      <a href="/signin.html" style="color:var(--accent)">Sign in</a></p>
+  </div>
+
+  <form id="form" class="col" style="gap:var(--s4)">
+    <div class="grid2">
+      <div class="field"><label class="label" for="name">Your name</label>
+        <input class="input" id="name" autocomplete="name" placeholder="Rehana K"></div>
+      <div class="field"><label class="label" for="store">Store name</label>
+        <input class="input" id="store" required placeholder="Rehana's Closet"></div>
+    </div>
+
+    <div class="field"><label class="label" for="category">What do you sell?</label>
+      <select class="select" id="category">
+        <option value="clothing">Clothing and accessories</option>
+        <option value="electronics">Electronics and gadgets</option>
+        <option value="home">Home and furnishing</option>
+        <option value="beauty">Beauty and personal care</option>
+        <option value="general">Something else</option>
+      </select>
+      <span class="tiny dim">We use this to draft your starter policy. You can change every
+        line of it next.</span></div>
+
+    <div class="field"><label class="label" for="email">Work email</label>
+      <input class="input" id="email" type="email" required autocomplete="email"
+             placeholder="you@yourstore.com"></div>
+
+    <div class="field"><label class="label" for="password">Password</label>
+      <input class="input" id="password" type="password" required minlength="8"
+             autocomplete="new-password" placeholder="At least 8 characters"></div>
+
+    <div class="err hide" id="error"></div>
+    <button class="btn btn-primary btn-lg btn-block" id="submit" type="submit">Create account</button>
+    <p class="tiny dim">By continuing you agree to our terms. We never use your customers'
+      data to train models.</p>
+  </form>
+
+  <div class="divider"></div>
+  <button class="btn btn-secondary btn-block" id="sample">Look around a sample store instead</button>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const form = document.getElementById("form");
+const error = document.getElementById("error");
+const submit = document.getElementById("submit");
+
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  error.classList.add("hide");
+  submit.disabled = true;
+  submit.textContent = "Creating your workspace…";
+  try {
+    const res = await fetch("/api/auth/signup", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: document.getElementById("name").value,
+        store_name: document.getElementById("store").value,
+        category: document.getElementById("category").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not create your account");
+    localStorage.setItem("rezo-token", data.token);
+    localStorage.setItem("rezo-store", data.account.store_id);
+    location.href = "/onboarding.html";
+  } catch (err) {
+    error.textContent = err.message;
+    error.classList.remove("hide");
+    submit.disabled = false;
+    submit.textContent = "Create account";
+  }
+};
+
+document.getElementById("sample").onclick = async () => {
+  const res = await fetch("/api/auth/sample", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ store_id: "st_rehana" }),
+  });
+  const data = await res.json();
+  localStorage.setItem("rezo-token", data.token);
+  localStorage.setItem("rezo-store", data.store.id);
+  location.href = "/dashboard.html";
+};
+</script>
+</body>
+</html>

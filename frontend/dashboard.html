@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rezo · Seller dashboard</title>
+<link rel="stylesheet" href="/styles/app.css">
+<style>
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between;
+                  gap: var(--s4); margin-bottom: var(--s4); }
+  .finding { display: flex; gap: var(--s3); padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
+  .finding:last-child { border-bottom: none; }
+  .finding .k { width: 78px; flex: none; color: var(--text-3); font-size: var(--t-sm); }
+  .evidence-shot { width: 100%; border-radius: var(--r-md); border: 1px solid var(--border); display: block; }
+  .slider { width: 100%; accent-color: var(--accent); }
+  .wizard-q { padding: var(--s4) 0; border-bottom: 1px solid var(--border-subtle); }
+  .wizard-q:last-of-type { border-bottom: none; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 5px 11px; border: 1px solid var(--border); border-radius: var(--r);
+          font-size: var(--t-sm); cursor: pointer; background: var(--surface-1); }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent);
+             font-weight: var(--fw-medium); }
+  .check { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: var(--t-base); }
+  .check .state { width: 7px; height: 7px; border-radius: var(--r-full); flex: none; }
+  .ok { background: var(--success); } .off { background: var(--text-4); } .bad { background: var(--danger); }
+  .acct { padding: 8px var(--s2) var(--s3); }
+  .acct-name { font-weight: var(--fw-semibold); font-size: var(--t-base); }
+  .acct-mail { font-size: var(--t-xs); color: var(--text-3); overflow: hidden;
+               text-overflow: ellipsis; }
+  .sample-note { background: var(--warn-soft); color: var(--warn); border-radius: var(--r);
+                 padding: 7px 9px; font-size: var(--t-xs); margin-bottom: var(--s2); }
+  pre.snippet { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
+                padding: 12px; font-family: var(--font-mono); font-size: var(--t-sm);
+                overflow-x: auto; margin: 0; color: var(--text-2); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" style="padding:0 var(--s2) var(--s3)">
+      <span class="brand-mark">R</span> Rezo
+    </a>
+    <div class="acct" id="acct">
+      <div class="acct-name" id="acctStore">Loading…</div>
+      <div class="acct-mail" id="acctEmail"></div>
+    </div>
+    <select class="select hide" id="storePicker" style="margin-bottom:var(--s2)"></select>
+    <button class="nav-item active" data-tab="disputes"><span class="dot"></span> Disputes
+      <span class="grow"></span><span class="badge badge-warn hide" id="needsCount"></span></button>
+    <button class="nav-item" data-tab="analytics"><span class="dot"></span> Analytics</button>
+    <button class="nav-item" data-tab="policy"><span class="dot"></span> Policy</button>
+    <button class="nav-item" data-tab="integration"><span class="dot"></span> Integration</button>
+    <div class="grow"></div>
+    <a class="nav-item" href="/console.html"><span class="dot"></span> Agent console</a>
+    <a class="nav-item" href="/store.html"><span class="dot"></span> Buyer view</a>
+    <button class="nav-item" id="runWatchdog"><span class="dot"></span> Run watchdog</button>
+    <button class="nav-item" data-theme-toggle><span class="dot"></span> Dark</button>
+    <button class="nav-item" id="signout"><span class="dot"></span> Sign out</button>
+  </aside>
+
+  <main class="main">
+    <!-- ── disputes ─────────────────────────────────────────────────── -->
+    <section data-panel="disputes">
+      <div class="section-head">
+        <div>
+          <h1>Disputes</h1>
+          <p class="muted" id="disputesSub">Everything below your limit resolves on its own.</p>
+        </div>
+        <div class="row">
+          <select class="select" id="statusFilter" style="width:auto">
+            <option value="">All</option>
+            <option value="awaiting_seller_approval">Needs you</option>
+            <option value="closed">Resolved</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel"><div class="list" id="disputeList"></div></div>
+    </section>
+
+    <!-- ── analytics ────────────────────────────────────────────────── -->
+    <section data-panel="analytics" class="hide">
+      <div class="section-head"><div><h1>Analytics</h1>
+        <p class="muted">What the agents handled for you.</p></div></div>
+      <div class="metrics" id="metrics"></div>
+      <div class="panel" style="margin-top:var(--s5)">
+        <div class="panel-head"><span class="strong">Cost</span></div>
+        <div style="padding:var(--s5)" id="costBox"></div>
+      </div>
+    </section>
+
+    <!-- ── policy ───────────────────────────────────────────────────── -->
+    <section data-panel="policy" class="hide">
+      <div class="section-head"><div><h1>Policy</h1>
+        <p class="muted">Answer these and we compile the rules the agents cite. You never write a document.</p></div></div>
+      <div class="card" id="wizard"></div>
+      <div class="panel" style="margin-top:var(--s5)">
+        <div class="panel-head"><span class="strong">Published clauses</span>
+          <span class="tiny dim" id="policyVersion"></span></div>
+        <div id="clauseList"></div>
+      </div>
+    </section>
+
+    <!-- ── integration ──────────────────────────────────────────────── -->
+    <section data-panel="integration" class="hide">
+      <div class="section-head"><div><h1>Integration</h1>
+        <p class="muted">Keys, the widget snippet, and a live check of the capability contract.</p></div>
+        <button class="btn btn-secondary btn-sm" id="recheck">Re-check</button></div>
+      <div id="integrationBody"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ── approval dossier: a side sheet, so the evidence stays visible ──── -->
+<div class="sheet-scrim" id="scrim"></div>
+<aside class="sheet" id="sheet">
+  <div class="sheet-head">
+    <div><div class="eyebrow" id="sheetEyebrow">Needs your approval</div>
+      <h3 id="sheetTitle"></h3></div>
+    <button class="btn btn-ghost btn-sm" id="sheetClose">Close</button>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot hide" id="sheetFoot">
+    <button class="btn btn-primary grow" id="approve">Approve</button>
+    <button class="btn btn-secondary" id="modify">Modify</button>
+    <button class="btn btn-danger" id="decline">Decline</button>
+  </div>
+</aside>
+
+<script src="/js/api.js"></script>
+<script>
+let storeId = null, current = null, stores = [];
+
+const $ = (s) => document.querySelector(s);
+const panels = document.querySelectorAll("[data-panel]");
+
+document.querySelectorAll(".nav-item[data-tab]").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".nav-item[data-tab]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    panels.forEach((p) => p.classList.toggle("hide", p.dataset.panel !== btn.dataset.tab));
+    if (btn.dataset.tab === "analytics") loadAnalytics();
+    if (btn.dataset.tab === "policy") loadPolicy();
+    if (btn.dataset.tab === "integration") loadIntegration();
+  };
+});
+
+const TOKEN = localStorage.getItem("rezo-token");
+if (!TOKEN) location.href = "/signin.html";
+const AUTH = { headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN } };
+
+(async function boot() {
+  // Who is signed in decides which store this dashboard is scoped to. Every
+  // read below is tenant-scoped by that id.
+  let me;
+  try {
+    const res = await fetch("/api/auth/me", AUTH);
+    if (!res.ok) throw new Error("session");
+    me = await res.json();
+  } catch (_) {
+    localStorage.removeItem("rezo-token");
+    location.href = "/signin.html";
+    return;
+  }
+  storeId = me.store.id;
+  $("#acctStore").textContent = me.store.name;
+  $("#acctEmail").textContent = me.account.email;
+  if (me.account.is_sample) {
+    $("#acct").insertAdjacentHTML("afterend",
+      '<div class="sample-note">Sample workspace, pre-filled with example cases</div>');
+  }
+  if (!me.store.onboarded && !me.account.is_sample) {
+    location.href = "/onboarding.html";
+    return;
+  }
+
+  stores = await API.stores();
+  $("#storePicker").innerHTML = stores.map((s) =>
+    `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  $("#storePicker").value = storeId;
+  $("#storePicker").onchange = (e) => { storeId = e.target.value; loadDisputes(); };
+  $("#signout").onclick = async () => {
+    await fetch("/api/auth/signout", { ...AUTH, method: "POST" });
+    localStorage.removeItem("rezo-token");
+    location.href = "/";
+  };
+  $("#statusFilter").onchange = loadDisputes;
+  $("#runWatchdog").onclick = runWatchdog;
+  $("#recheck").onclick = loadIntegration;
+  await loadDisputes();
+  const hash = location.hash.replace("#", "");
+  if (hash) document.querySelector(`.nav-item[data-tab="${hash}"]`)?.click();
+  setInterval(loadDisputes, 6000);
+})();
+
+/* ── inbox ─────────────────────────────────────────────────────────────── */
+async function loadDisputes() {
+  const status = $("#statusFilter").value;
+  const rows = await API.disputes(status ? { store_id: storeId, status } : { store_id: storeId });
+  const needs = rows.filter((r) => r.status === "awaiting_seller_approval").length;
+  const badge = $("#needsCount");
+  badge.classList.toggle("hide", !needs);
+  badge.textContent = needs;
+
+  const list = $("#disputeList");
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-glyph">◷</div>
+      <div class="strong">Nothing waiting</div>
+      <p class="small dim">${status ? "No disputes match this filter." :
+        "When a buyer reports a problem it appears here. Most never need you."}</p></div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((r) => `
+    <button class="list-row" data-id="${r.dispute_id}">
+      <span class="grow">
+        <span class="strong">${escapeHtml(r.buyer_name || "Buyer")}</span>
+        <span class="dim"> · ${titleCase(r.claim_type)}</span>
+        <div class="tiny dim"><span class="mono">${escapeHtml(r.order_id)}</span>
+          · ${timeAgo(r.created_at)}${r.opened_by === "watchdog"
+            ? ' · <span style="color:var(--warn)">opened by watchdog</span>' : ""}</div>
+      </span>
+      <span class="tabular strong">${rupees(r.claim_value)}</span>
+      ${r.fraud_score >= 0.6 ? '<span class="badge badge-bad">Fraud risk</span>' : ""}
+      ${r.status === "awaiting_seller_approval"
+        ? '<span class="badge badge-warn">Needs you</span>'
+        : outcomeBadge(r.outcome)}
+    </button>`).join("");
+
+  list.querySelectorAll("[data-id]").forEach((el) => {
+    el.onclick = () => openDossier(el.dataset.id);
+  });
+}
+
+/* ── dossier ───────────────────────────────────────────────────────────── */
+async function openDossier(id) {
+  current = await API.dispute(id);
+  const d = current.decision || {}, e = current.evidence || {},
+        p = current.policy || {}, f = current.fraud || {};
+  const pending = current.status === "awaiting_seller_approval";
+
+  $("#sheetEyebrow").textContent = pending ? "Needs your approval" : "Resolved case";
+  $("#sheetTitle").textContent =
+    `${titleCase(current.claim_type)} · ${rupees(current.claim_value)}`;
+  $("#sheetFoot").classList.toggle("hide", !pending);
+
+  const shots = (current.evidence_files || []).map((x) =>
+    `<img class="evidence-shot" src="/media/${escapeHtml(x.path.split("/").pop())}" alt="evidence">`).join("");
+
+  $("#sheetBody").innerHTML = `
+    ${pending ? `<div class="card card-tight" style="background:var(--warn-soft);border-color:transparent">
+        <div class="strong">${escapeHtml((current.dossier || {}).headline || "")}</div>
+        <p class="small" style="margin-top:4px">${escapeHtml(
+          (current.guardrail || {}).reasons?.join(" ") || "")}</p>
+      </div>` : ""}
+
+    ${shots ? `<div class="col" style="gap:6px">
+        <span class="eyebrow">Evidence</span>${shots}</div>` : ""}
+
+    <div>
+      <span class="eyebrow">Findings</span>
+      <div class="finding"><span class="k">Evidence</span><span class="grow">
+        ${e.verified ? '<span class="badge badge-ok">Verified</span>' :
+                       '<span class="badge badge-bad">Not verified</span>'}
+        <span class="small dim"> ${((e.confidence ?? 0) * 100).toFixed(0)}% ·
+        ${escapeHtml(titleCase(e.tier || "none"))}</span>
+        <div class="small dim">${escapeHtml(e.notes || "")}</div>
+        ${(e.forensics_flags || []).length
+          ? `<div class="small" style="color:var(--warn)">${e.forensics_flags.map(titleCase).join(", ")}</div>` : ""}
+      </span></div>
+      <div class="finding"><span class="k">Policy</span><span class="grow">
+        ${p.eligible ? '<span class="badge badge-ok">Eligible</span>'
+                     : '<span class="badge badge-none">Not eligible</span>'}
+        ${p.clause_id ? `<span class="mono tiny"> ${escapeHtml(p.clause_id)}</span>` : ""}
+        <div class="small dim">${escapeHtml(p.reason || "")}</div>
+      </span></div>
+      <div class="finding"><span class="k">Fraud</span><span class="grow">
+        <span class="badge ${f.score >= 0.6 ? "badge-bad" : "badge-ok"}">${(f.score ?? 0).toFixed(2)}</span>
+        <div class="small dim">${escapeHtml((f.signals || []).join("; "))}</div>
+      </span></div>
+      <div class="finding"><span class="k">Recommends</span><span class="grow">
+        ${outcomeBadge(d.outcome)} ${d.amount ? `<span class="strong tabular"> ${rupees(d.amount)}</span>` : ""}
+        <div class="small dim">${escapeHtml(d.rationale || "")}</div>
+      </span></div>
+    </div>
+
+    ${current.refund ? `<div class="card card-tight">
+        <span class="eyebrow">Executed</span>
+        <div class="small" style="margin-top:4px">${rupees(current.refund.amount)} via
+        ${escapeHtml(current.refund.method.replace("_", " "))} ·
+        <span class="mono tiny">${escapeHtml(current.refund.reference)}</span><br>
+        Approved by ${escapeHtml(current.refund.approved_by)}</div></div>` : ""}
+
+    <details>
+      <summary class="small muted" style="cursor:pointer">Audit trail (${current.audit.length} entries)</summary>
+      <div style="margin-top:8px">${current.audit.map((a) =>
+        `<div class="tiny dim" style="padding:3px 0">
+          <span class="mono">${new Date(a.at).toLocaleTimeString()}</span>
+          ${escapeHtml(a.actor)} · ${escapeHtml(a.action)}</div>`).join("")}</div>
+    </details>`;
+
+  openSheet();
+}
+
+function openSheet() { $("#sheet").classList.add("open"); $("#scrim").classList.add("open"); }
+function closeSheet() { $("#sheet").classList.remove("open"); $("#scrim").classList.remove("open"); }
+$("#sheetClose").onclick = closeSheet;
+$("#scrim").onclick = closeSheet;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+
+$("#approve").onclick = () => decide(true);
+$("#decline").onclick = () => {
+  const note = prompt("Why are you declining? The buyer sees a version of this.");
+  if (note === null) return;
+  decide(false, note);
+};
+$("#modify").onclick = () => {
+  const amount = prompt("Refund how much instead?", current.decision?.amount || 0);
+  if (amount === null) return;
+  const note = prompt("Reason for the change?") || "adjusted by seller";
+  decide(true, note, "partial_refund", parseFloat(amount));
+};
+
+async function decide(approved, note = "", overrideOutcome = null, overrideAmount = null) {
+  const btns = $("#sheetFoot").querySelectorAll("button");
+  btns.forEach((b) => (b.disabled = true));
+  try {
+    const result = await API.approve(current.dispute_id, {
+      approved, by: `seller:${storeId}`, note,
+      override_outcome: overrideOutcome, override_amount: overrideAmount,
+    });
+    toast(result.refund
+      ? `Done. ${rupees(result.refund.amount)} refunded.`
+      : "Recorded. No payment made.");
+    closeSheet();
+    loadDisputes();
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    btns.forEach((b) => (b.disabled = false));
+  }
+}
+
+/* ── analytics ─────────────────────────────────────────────────────────── */
+async function loadAnalytics() {
+  const a = await API.analytics(storeId);
+  const metric = (value, label) =>
+    `<div class="metric"><span class="metric-value">${value}</span>
+     <span class="metric-label">${label}</span></div>`;
+  $("#metrics").innerHTML = [
+    metric(a.disputes_total, "Disputes"),
+    metric(`${Math.round(a.auto_resolution_rate * 100)}%`, "Resolved without you"),
+    metric(a.awaiting_human, "Waiting on you"),
+    metric(a.fraud_flagged, "Flagged as risky"),
+    metric(rupees(a.refunded_total), "Refunded"),
+    metric(rupees(a.fraud_value_blocked), "Claim value held back"),
+  ].join("");
+  $("#costBox").innerHTML = `
+    <div class="spread"><span class="muted">Model cost this store</span>
+      <span class="strong tabular">${a.llm_cost_inr ? rupees(a.llm_cost_inr) : "₹0"}</span></div>
+    <div class="spread" style="margin-top:8px"><span class="muted">Per dispute</span>
+      <span class="strong tabular">${a.cost_per_dispute_inr ? "₹" + a.cost_per_dispute_inr : "₹0"}</span></div>
+    <p class="small dim" style="margin-top:10px">A human handling the same case costs roughly
+      ₹150–400 in agent time spread over several days.
+      ${a.llm_cost_inr ? "" : "Running on the offline provider, so model cost is zero right now."}</p>`;
+}
+
+/* ── policy wizard ─────────────────────────────────────────────────────── */
+const WIZARD = [
+  { key: "window", q: "How long after delivery can a buyer report a problem?",
+    options: [["3", "3 days"], ["7", "7 days"], ["15", "15 days"]], value: "7" },
+  { key: "damage", q: "Damaged on arrival:", value: "full_refund",
+    options: [["full_refund", "Full refund"], ["replacement", "Replacement"]] },
+  { key: "wrong", q: "Wrong item or size delivered:", value: "replacement",
+    options: [["replacement", "Replacement"], ["full_refund", "Full refund"]] },
+  { key: "mind", q: "Change of mind:", value: "partial_refund",
+    options: [["partial_refund", "Refund minus shipping"], ["reject", "Not accepted"]] },
+  { key: "sale", q: "Sale and custom items:", value: "final",
+    options: [["final", "Final sale"], ["same", "Same as everything else"]] },
+];
+
+async function loadPolicy() {
+  $("#wizard").innerHTML = WIZARD.map((q, i) => `
+    <div class="wizard-q" data-q="${i}">
+      <div class="strong">${escapeHtml(q.q)}</div>
+      <div class="chips" style="margin-top:8px">
+        ${q.options.map(([v, label]) =>
+          `<button class="chip ${v === q.value ? "on" : ""}" data-v="${v}">${label}</button>`).join("")}
+      </div>
+    </div>`).join("") + `
+    <div class="row" style="margin-top:var(--s4)">
+      <button class="btn btn-primary" id="publish">Publish policy</button>
+      <span class="small dim">Published as a new version. Older orders keep the policy
+        that applied when they were placed.</span>
+    </div>`;
+
+  $("#wizard").querySelectorAll(".wizard-q").forEach((row) => {
+    row.querySelectorAll(".chip").forEach((chip) => {
+      chip.onclick = () => {
+        row.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+        chip.classList.add("on");
+        WIZARD[row.dataset.q].value = chip.dataset.v;
+      };
+    });
+  });
+  $("#publish").onclick = publishPolicy;
+
+  const packs = await API.policy(storeId);
+  const latest = packs[packs.length - 1];
+  $("#policyVersion").textContent = latest
+    ? `${latest.version} · in force since ${new Date(latest.effective_from).toLocaleDateString()}` : "";
+  $("#clauseList").innerHTML = (latest?.clauses || []).map((c) => `
+    <div style="padding:12px var(--s4);border-bottom:1px solid var(--border-subtle)">
+      <div class="row"><span class="mono tiny">${escapeHtml(c.id)}</span>
+        <span class="strong">${escapeHtml(c.title)}</span>
+        <span class="grow"></span>
+        <span class="badge badge-none">${c.window_days} day window</span></div>
+      <p class="small dim" style="margin-top:4px">${escapeHtml(c.text)}</p>
+    </div>`).join("");
+}
+
+async function publishPolicy() {
+  const get = (k) => WIZARD.find((q) => q.key === k).value;
+  const window = parseInt(get("window"), 10);
+  const clauses = [
+    { id: "P-1", title: "Order not delivered",
+      text: `If a shipment is not delivered within 10 days of dispatch, or the courier marks it undelivered, lost or stuck, the order is refunded in full without waiting for the parcel to come back.`,
+      claim_types: ["not_delivered"], window_days: 30, outcome: "full_refund", exclusions: [] },
+    { id: "P-2", title: "Damaged on arrival",
+      text: `Items that arrive damaged must be reported within ${window} days of delivery with photographic evidence. Verified claims receive ${get("damage") === "full_refund" ? "a full refund" : "a free replacement"}.`,
+      claim_types: ["damage"], window_days: window,
+      outcome: get("damage"), exclusions: get("sale") === "final" ? ["custom_made"] : [] },
+    { id: "P-3", title: "Wrong item or size delivered",
+      text: `If the delivered item does not match the order in design, colour or size, the buyer receives ${get("wrong") === "replacement" ? "a replacement in the correct variant" : "a full refund"}. Must be reported within ${window} days.`,
+      claim_types: ["wrong_item", "wrong_size"], window_days: window,
+      outcome: get("wrong"), exclusions: [] },
+    { id: "P-4", title: "Change of mind",
+      text: get("mind") === "reject"
+        ? "Change of mind returns are not accepted."
+        : `Unused items with tags intact may be returned within 3 days of delivery for a refund of the item price. Shipping charges are not refunded.`,
+      claim_types: ["change_of_mind"], window_days: get("mind") === "reject" ? 0 : 3,
+      outcome: get("mind"),
+      exclusions: get("sale") === "final" ? ["sale_item", "custom_made"] : [] },
+  ];
+  try {
+    const res = await API.publishPolicy(storeId, { clauses });
+    toast(`Policy published as ${res.version}. New disputes are judged against it.`);
+    loadPolicy();
+  } catch (err) { toast(err.message, "err"); }
+}
+
+/* ── integration ───────────────────────────────────────────────────────── */
+async function loadIntegration() {
+  const body = $("#integrationBody");
+  body.innerHTML = `<div class="card"><div class="skeleton" style="width:50%"></div></div>`;
+  const s = await API.integration(storeId);
+  const store = stores.find((x) => x.id === storeId) || {};
+
+  body.innerHTML = `
+    <div class="metrics" style="margin-bottom:var(--s5)">
+      <div class="metric"><span class="metric-value">${s.ready ? "Ready" : "Incomplete"}</span>
+        <span class="metric-label">Contract status</span></div>
+      <div class="metric"><span class="metric-value">${titleCase(s.connector)}</span>
+        <span class="metric-label">Connector</span></div>
+      <div class="metric"><span class="metric-value tabular">${rupees(store.auto_approve_cap || 0)}</span>
+        <span class="metric-label">Automatic limit</span></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:var(--s5)">
+      <div class="panel-head"><span class="strong">Autonomy</span></div>
+      <div style="padding:var(--s5)">
+        <div class="spread"><span class="muted">Resolve on its own up to</span>
+          <span class="strong tabular" id="capValue">${rupees(store.auto_approve_cap || 0)}</span></div>
+        <input class="slider" type="range" min="0" max="5000" step="100"
+               value="${store.auto_approve_cap || 0}" id="capSlider" style="margin-top:10px">
+        <p class="small dim">Anything above this comes to you first. The limit is enforced in
+          code before a refund is called, not by asking the model nicely. Evidence quality scales
+          it down further: an unverifiable upload unlocks a quarter of it.</p>
+        <button class="btn btn-primary btn-sm" id="saveCap" style="margin-top:8px">Save limit</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:var(--s5)">
+      <div class="panel-head"><span class="strong">Capability contract</span>
+        <span class="tiny dim">checked ${timeAgo(s.checked_at)}</span></div>
+      <div style="padding:var(--s4) var(--s5)">
+        ${s.checks.map((c) => `<div class="check">
+          <span class="state ${c.state === "ok" ? "ok" : (c.required ? "bad" : "off")}"></span>
+          <span class="mono">${escapeHtml(c.capability)}</span>
+          ${c.required ? '<span class="badge badge-none">required</span>' : ""}
+          <span class="grow"></span>
+          <span class="small dim">${escapeHtml(c.detail)}</span></div>`).join("")}
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:var(--s5)">
+      <div class="panel-head"><span class="strong">Keys</span></div>
+      <div style="padding:var(--s5);display:flex;flex-direction:column;gap:10px">
+        <div class="field"><span class="label">Publishable key — safe in your page</span>
+          <input class="input mono" readonly value="${escapeHtml(s.publishable_key)}"></div>
+        <div class="field"><span class="label">Secret key — server to server only</span>
+          <input class="input mono" readonly value="${escapeHtml(s.secret_key)}"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="strong">Add the widget</span>
+        <div class="row">
+          <a class="btn btn-secondary btn-sm" href="/docs/INTEGRATION.md" target="_blank">Dev guide</a>
+          <a class="btn btn-secondary btn-sm" href="/docs/llms.txt" target="_blank">AI context file</a>
+        </div></div>
+      <div style="padding:var(--s5)">
+        <pre class="snippet">${escapeHtml(s.widget_snippet)}</pre>
+        <p class="small dim" style="margin-top:10px">Drop this on your order page. The widget loads in
+          an isolated frame, so your styling cannot break it and camera permission is its own.</p>
+      </div>
+    </div>`;
+
+  const slider = $("#capSlider");
+  slider.oninput = () => { $("#capValue").textContent = rupees(slider.value); };
+  $("#saveCap").onclick = async () => {
+    await API.updateStore(storeId, { auto_approve_cap: parseFloat(slider.value) });
+    stores = await API.stores();
+    toast("Limit saved. It applies to the next dispute immediately.");
+  };
+}
+
+/* ── watchdog ──────────────────────────────────────────────────────────── */
+async function runWatchdog() {
+  toast("Scanning shipments and approval timers…");
+  const r = await API.watchdog();
+  const opened = r.disputes_opened.length;
+  toast(opened
+    ? `${opened} dispute(s) opened from stalled shipments nobody had reported.`
+    : "No stalled shipments and no breached timers.");
+  loadDisputes();
+}
+</script>
+</body>
+</html>

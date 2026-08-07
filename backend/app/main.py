@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.auth_routes import router as auth_router
 from .api.routes import router
 from .config import settings
 from .db.session import init_db
@@ -44,6 +45,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                    allow_headers=["*"])
 
 app.include_router(router, prefix="/api")
+app.include_router(auth_router, prefix="/api/auth")
 
 
 @app.get("/health")
@@ -54,6 +56,10 @@ def health() -> dict:
 
 
 app.mount("/media", StaticFiles(directory=str(settings.media_dir)), name="media")
+
+DOCS = Path(__file__).resolve().parent.parent.parent / "docs"
+if DOCS.exists():
+    app.mount("/docs", StaticFiles(directory=str(DOCS)), name="docs")
 
 if FRONTEND.exists():
     @app.get("/")
