@@ -16,6 +16,31 @@ DATA_DIR = BASE_DIR / "data"
 MEDIA_DIR = DATA_DIR / "media"
 
 
+def _load_env_file() -> None:
+    """Read backend/.env into the process environment.
+
+    Done here rather than relying on the shell so that `uvicorn app.main:app`
+    behaves identically however it is launched. Real environment variables
+    always win, which is what makes the same image work in production where
+    secrets arrive from the platform rather than a file.
+    """
+    env_path = BASE_DIR / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
+
+
+_load_env_file()
+
+
 class Settings:
     def __init__(self) -> None:
         DATA_DIR.mkdir(parents=True, exist_ok=True)

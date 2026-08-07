@@ -23,7 +23,7 @@ from sqlalchemy import select
 
 from ..db.models import Account, LoginCode
 from ..db.session import session_scope
-from . import accounts
+from . import accounts, mail
 
 log = logging.getLogger("rezo.otp")
 
@@ -31,9 +31,10 @@ CODE_TTL_MINUTES = 10
 MAX_ATTEMPTS = 5
 RESEND_COOLDOWN_SECONDS = 30
 
-# When no mail provider is wired, the code is surfaced to the client so the
-# flow can be completed. Set REZO_MAIL=live once a provider exists.
-LOCAL_DELIVERY = os.getenv("REZO_MAIL", "local") == "local"
+def _local_delivery() -> bool:
+    """Read at call time, not import time, so switching the provider on does not
+    require a code change or a stale module reload."""
+    return not mail.is_live()
 
 
 class OtpError(Exception):
@@ -78,19 +79,32 @@ def request_code(email: str) -> dict:
         existing = db.scalar(select(Account).where(Account.email == email))
         is_new = existing is None
 
-    log.info("login code for %s: %s", email, code)
     payload = {
         "sent": True,
         "email": email,
         "is_new_account": is_new,
         "expires_in_minutes": CODE_TTL_MINUTES,
     }
-    if LOCAL_DELIVERY:
-        # Explicitly labelled: no mail provider is configured in this build.
+
+    if _local_delivery():
+        # No provider configured: say so plainly and hand the code back, rather
+        # than pretending an email is on its way.
+        log.info("login code for %s: %s", email, code)
         payload["local_code"] = code
         payload["delivery"] = "local"
-    else:
+        return payload
+
+    try:
+        mail.send_login_code(email, code, CODE_TTL_MINUTES, is_new)
         payload["delivery"] = "email"
+    except mail.MailError as exc:
+        # The code is already issued and valid. Failing the whole request would
+        # strand someone whose code exists but never arrived, so fall back to
+        # showing it and label the failure honestly.
+        log.error("mail send failed for %s: %s", email, exc)
+        payload["local_code"] = code
+        payload["delivery"] = "local"
+        payload["delivery_error"] = "We could not send the email just now."
     return payload
 
 
