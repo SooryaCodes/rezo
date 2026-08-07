@@ -2,93 +2,106 @@
 
 **Autonomous multi-agent dispute resolution for e-commerce.**
 
-Rezo is a dispute-resolution layer that handles a buyer's complaint end to end: it understands the claim in natural language, verifies evidence through live challenge-based camera capture, checks the seller's actual policy with clause-level citations, scores fraud, decides a fair outcome, and executes it (refund, replacement, escalation) — with a human approving anything above configurable risk thresholds, and a complete audit trail behind every decision.
+A buyer reports a problem with an order. Rezo understands the claim, verifies the evidence through a live camera challenge, checks eligibility against the merchant's own policy down to the clause, scores fraud risk, decides an outcome, and executes it — inside limits the merchant sets and enforced in code, not by asking a model to behave. Anything above the line, anything risky and anything uncertain freezes and asks a person.
 
-Built for **Neurobots Championship 2026** — Agentic AI Track, Problem Statement 12 (Enterprise Customer Experience Intelligence & Autonomous Dispute Resolution Platform).
+Built for **Neurobots Championship 2026** — Agentic AI Track, Problem Statement 12.
 
 ## Why
 
-Resolving an e-commerce dispute today takes days: rigid chatbots, ticket queues, and a human agent manually cross-checking orders, policies, and photos across disconnected systems. Meanwhile, AI-generated fake damage photos have become the fastest-growing form of return fraud — roughly 3 in 10 retail fraud attempts are now AI-generated, and human reviewers miss most high-quality fakes.
+Resolving a dispute today takes days: rigid chatbots, ticket queues, and a human cross-checking orders, policies and photos across disconnected systems. Meanwhile roughly 3 in 10 retail fraud attempts are now AI-generated imagery, and most reviewers cannot tell.
 
-Existing tools automate the *talking* (chatbots) or the *clicking* (RPA) — never the *judging*. Rezo automates the judging, safely.
+Existing tools automate the *talking* (chatbots) or the *clicking* (RPA). Nobody automates the *judging*. Rezo does, safely.
 
-**We don't detect fake claims. We make them impossible to file** — evidence is captured live, inside our session, against a server-issued random challenge, and matched against the exact unit that was shipped.
+**We don't detect fake claims. We make them impossible to file** — evidence is captured live, inside our session, against a randomised challenge issued seconds earlier, and matched against the exact unit that was shipped.
+
+## Run it
+
+Two processes. The API serves the engine; Next proxies to it so everything is same-origin.
+
+```bash
+# 1. backend
+cd backend
+python3 -m venv ../.venv && ../.venv/bin/pip install -r requirements.txt
+PYTHONPATH=. ../.venv/bin/python -m uvicorn app.main:app --port 8000
+
+# 2. frontend
+cd frontend
+npm install
+npm run dev            # http://localhost:3000
+```
+
+The database seeds itself on first boot with three stores, versioned policy packs, buyer histories and five scenarios. No API keys are required: the LLM layer ships with a deterministic offline provider so the whole pipeline runs and is testable without a network. Add `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` and set `REZO_LLM_PROVIDER=anthropic` to switch to live models.
+
+```bash
+cd backend && ../.venv/bin/python -m pytest      # 28 tests
+```
+
+## What's here
+
+| Surface | Path | What it is |
+|---|---|---|
+| Marketing site | `/` | Runs four real cases through the live engine on the page |
+| Sign in / up | `/signin`, `/signup` | One email-code flow for both |
+| Onboarding | `/onboarding` | Four steps that write real policy and guardrail config |
+| Dashboard | `/dashboard` | Inbox, approval dossier, analytics, policy, integration health |
+| Agent console | `/console` | The real graph in React Flow with a live event stream |
+| Integration guide | `/docs` | A visual guide, and a context file for a coding assistant |
+| Test storefront | `/store` | Embeds the widget exactly as the guide describes |
+| Widget | `/widget` | The buyer flow; embeddable via `public/widget.js` |
 
 ## Architecture
 
 ```
-Buyer chat ──► Interaction Agent ──► ┌─ Evidence Agent  (vision, live capture)
-                                     ├─ Policy Agent    (RAG, clause citations)   ──► Resolution Agent
-                                     └─ Fraud Agent     (signals + scoring)              │
-                                                                              guardrail check (code, not LLM)
-                                                                                   │              │
-                                                                             auto-execute    human approval
-                                                                                   │         (interrupt/resume)
-                                                                                   ▼              ▼
-                                                                          Execution Agent ──► audit log
+Buyer ──► Interaction ──┬─► Evidence ──┬─► Fraud ─► Resolution ─► Guardrail ─┬─► Execution
+                        └─► Policy ────┘                          (code)     ├─► Seller gate
+                                                                             └─► Platform gate
 ```
 
-Eight specialized agents collaborate through a shared, checkpointed case state (LangGraph). Agents never call money-moving APIs directly: they emit structured decisions, and deterministic tool-layer code enforces refund caps, identity checks, and policy-clause verification before anything executes. Human-in-the-loop is implemented as a first-class graph interrupt — over-threshold cases freeze mid-flow and resume exactly where they paused after seller approval.
+Evidence and Policy run concurrently. Fraud runs after Evidence deliberately: scoring risk before knowing an image carries generator metadata throws away the strongest signal available. Waiting for the buyer's evidence and waiting for a human approval are both first-class graph interrupts, so a case can freeze for days, survive a restart and resume from its checkpoint.
 
-See [docs/architecture.md](docs/architecture.md) and [docs/agents.md](docs/agents.md) for the full design.
+Three invariants hold the whole thing together:
 
-## Key capabilities
+1. **Agents recommend, code enforces.** Refund caps, clause verification and idempotency live in the tool layer, outside the model. A prompt-injected or hallucinating agent cannot move money.
+2. **Evidence quality scales autonomy.** Attested live capture unlocks the full limit; an unverifiable upload unlocks a quarter of it and gets reviewed. Friction is proportional to risk.
+3. **Nothing moves untracked.** The audit entry commits in the same transaction as the refund.
 
-- **Live evidence capture with challenge–response** — server-issued, time-boxed random challenges ("show the damage, then the price tag in the same frame"); defeats pre-generated and AI-generated fake evidence
-- **Tiered evidence trust** — attested live capture → unattested camera → upload with EXIF/C2PA forensics; friction scales with risk
-- **Policy engine with citations** — seller policies compiled into versioned clause packs; every decision quotes the governing clause; hallucinated clauses cannot pass (clause IDs verified in code)
-- **Multi-vendor / multi-tenant** — per-store policy packs, autonomy limits and capability flags; platform-level arbitration tier; cross-store fraud intelligence
-- **Human-in-the-loop** — configurable autonomy caps; one-tap approval dossiers; every override recorded as a learning precedent
-- **Full explainability** — decision rationale, clause reference, confidence, fraud assessment, and an append-only audit log written transactionally with every execution
+See [docs/architecture.md](docs/architecture.md) and [docs/agents.md](docs/agents.md).
 
-## Tech stack
+## Stack
 
 | Layer | Choice |
 |---|---|
-| Agent orchestration | LangGraph (Python) |
-| LLMs | Claude Sonnet (reasoning) · Gemini Flash / GPT-4o-mini (vision, routing) via a model-agnostic client |
+| Agent orchestration | LangGraph — checkpointed state graph, native interrupts |
+| LLMs | Claude Sonnet (judgement) · Gemini Flash / GPT-4o-mini (vision, routing) behind a model-agnostic client, plus a deterministic offline provider |
 | API | FastAPI + WebSockets |
-| Retrieval | ChromaDB + sentence-transformers |
-| Data | PostgreSQL (disputes, audit log) · Redis (state, SLA timers) |
-| Frontend | Next.js + Tailwind + React Flow |
-| Evidence | getUserMedia live capture + server nonce · EXIF/C2PA forensics |
-| Infra | Docker Compose (dev) · Kubernetes/Kafka/OpenTelemetry (production path) |
+| Retrieval | Lexical retriever by default, ChromaDB optional — policy packs are small and exactness matters more than embeddings at this size |
+| Data | PostgreSQL or SQLite (disputes, versioned policy, append-only audit, refund ledger) · Redis optional |
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind, React Flow |
+| Evidence | `getUserMedia` live capture with server-issued expiring challenge · EXIF and C2PA forensics on the fallback path |
 
-## Repository layout
+## Repository
 
 ```
-backend/          FastAPI service: agent graph, tools layer, API routes, DB models
-  app/agents/     LangGraph state machine, agent nodes, prompts
-  app/tools/      Guarded tool layer (the only path to money-moving actions)
-  app/api/        REST + WebSocket endpoints
-  app/db/         SQLAlchemy models: disputes, evidence, policy packs, audit log
-frontend/         Next.js: buyer chat + capture, seller dashboard, agent console
-mock_shop/        Seeded demo store API (orders, payments, shipping, catalog)
-docs/             Architecture, agent specifications, API reference
+backend/
+  app/agents/      LangGraph state machine, the eight agent nodes, prompts, event stream
+  app/tools/       Guarded capability layer + local and HTTP connectors
+  app/evidence/    Challenge-response capture, image forensics
+  app/services/    Dispute lifecycle, accounts, OTP, watchdog, integration checks
+  app/db/          Multi-tenant models, session scope
+  tests/           28 tests: guardrail refusals and the five end-to-end scenarios
+frontend/
+  app/             Marketing, auth, onboarding, dashboard, console, docs, store, widget
+  components/      UI kit, motion primitives, agent visuals
+  lib/             Typed API client, formatting, integration snippets
+  public/widget.js The embeddable loader
+docs/              Architecture and agent specifications
 ```
-
-## Status & roadmap
-
-| Round | Scope |
-|---|---|
-| R1 — Idea validation | Architecture, documentation, scaffold (this repo) |
-| R2 — Prototype | End-to-end happy path: chat → capture → verify → decide → execute → audit; HITL interrupt/resume; live agent console |
-| R3 — Product readiness | Challenge-response capture, upload forensics, fraud signals, seller wizard, analytics |
-| R4 — Grand finale | Multi-store fraud intelligence, Malayalam support, SLA watchdog, polish |
 
 ## Team
 
 - **Soorya Krishna P R** — agent architecture & orchestration, product
 - **Vinu Vinson** — backend APIs, tools & guardrails layer, data model
-- **Vishnu M V** — frontend: buyer chat, capture flow, seller dashboard, agent console
+- **Vishnu M V** — frontend: buyer chat, capture flow, dashboard, console
 - **Jyothis Mariya Joy** — evidence & fraud layer, demo scenarios, QA
-
-## Local development
-
-```bash
-docker compose up -d postgres redis
-cd backend && pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
 
 MIT licensed.

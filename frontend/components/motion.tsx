@@ -34,7 +34,9 @@ export function Reveal({
       (entries) => entries.forEach((e) => {
         if (e.isIntersecting) { setShown(true); observer.disconnect(); }
       }),
-      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" },
+      // Any part entering is enough. Requiring a fraction of the element leaves
+      // tall sections stuck half-faded when they are taller than the viewport.
+      { threshold: 0, rootMargin: "0px 0px -60px 0px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
