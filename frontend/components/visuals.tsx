@@ -3,15 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Small diagrams that animate the first time they are seen.
+ * Small working diagrams.
  *
- * Each one shows a mechanism rather than decorating a card: how much autonomy
- * each evidence tier unlocks, what a verified clause looks like, where the
- * guardrail sits, how a fraud score accumulates, what a stalled shipment looks
- * like. They idle in their finished state if motion is reduced.
+ * Each one animates into its finished state the first time it is seen and shows
+ * a mechanism rather than decorating a card. They idle in the finished state
+ * when motion is reduced, so nothing is only legible while it moves.
  */
 
-function useInView<T extends HTMLElement>(threshold = 0.4) {
+function useInView<T extends HTMLElement>(threshold = 0.35) {
   const ref = useRef<T>(null);
   const [seen, setSeen] = useState(false);
 
@@ -32,86 +31,60 @@ function useInView<T extends HTMLElement>(threshold = 0.4) {
   return [ref, seen] as const;
 }
 
-/* ── how much each evidence tier unlocks ─────────────────────────────────── */
+/* ── how much autonomy each evidence tier unlocks ────────────────────────── */
 
 const TIERS = [
-  { label: "Attested live capture", pct: 100, note: "full limit" },
-  { label: "Camera, no challenge", pct: 50, note: "half" },
+  { label: "Verified live", pct: 100, note: "full limit" },
+  { label: "Camera only", pct: 50, note: "half" },
   { label: "Uploaded file", pct: 25, note: "quarter, reviewed" },
 ];
 
 export function EvidenceTierVisual() {
   const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div ref={ref} className="flex flex-col gap-2">
+    <div ref={ref} className="flex flex-col gap-2.5">
       {TIERS.map((t, i) => (
         <div key={t.label} className="flex items-center gap-3">
-          <span className="text-sm text-ink-2 w-[152px] shrink-0">{t.label}</span>
-          <div className="flex-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-            <span
-              className="block h-full rounded-full bg-accent transition-[width] duration-700 ease-out"
-              style={{ width: seen ? `${t.pct}%` : "0%", transitionDelay: `${i * 130}ms` }}
-            />
+          <span className="text-sm text-ink-2 w-[104px] shrink-0">{t.label}</span>
+          <div className="flex-1 h-2 rounded-full bg-surface-3 overflow-hidden">
+            <span className="block h-full rounded-full bg-action transition-[width] duration-[900ms] ease-out"
+                  style={{ width: seen ? `${t.pct}%` : "0%", transitionDelay: `${i * 150}ms` }} />
           </div>
-          <span className="text-xs text-ink-3 w-[104px] text-right shrink-0">{t.note}</span>
+          <span className="text-xs text-ink-3 w-[110px] text-right shrink-0 tabular">{t.note}</span>
         </div>
       ))}
     </div>
   );
 }
 
-/* ── a clause being verified before it can be used ───────────────────────── */
+/* ── the cited clause, verified before it can be used ────────────────────── */
 
 export function ClauseVisual() {
   const [ref, seen] = useInView<HTMLDivElement>();
   return (
-    <div ref={ref} className="font-mono text-xs bg-surface-2 border border-line-subtle rounded px-3 py-2.5 text-ink-2">
-      <div>clause: <span className="text-ink">CL-4.2</span></div>
-      <div>window: <span className="text-ink">7 days</span></div>
-      <div className="flex items-center gap-1.5">
-        verified:
+    <div ref={ref}
+         className="rounded-xl border border-line-subtle bg-surface-2 px-3.5 py-3 font-mono text-xs text-ink-2">
+      <div className="flex justify-between"><span>clause</span><span className="text-ink">CL-4.2</span></div>
+      <div className="flex justify-between mt-1"><span>window</span><span className="text-ink">7 days</span></div>
+      <div className="flex justify-between mt-1 pt-2 border-t border-line-subtle">
+        <span>exists in your policy</span>
         <span className={`transition-all duration-500 ease-out ${
-          seen ? "opacity-100 translate-x-0 text-ok" : "opacity-0 -translate-x-1"}`}
-          style={{ transitionDelay: "420ms" }}>
-          true ✓
+          seen ? "opacity-100 translate-x-0 text-accent" : "opacity-0 -translate-x-1"}`}
+          style={{ transitionDelay: "500ms" }}>
+          verified
         </span>
       </div>
     </div>
   );
 }
 
-/* ── the guardrail between the recommendation and the money ──────────────── */
+/* ── a risk score accumulating from named signals ────────────────────────── */
 
-export function GuardrailVisual() {
-  const [ref, seen] = useInView<HTMLDivElement>();
-  return (
-    <div ref={ref} className="flex items-center gap-2 text-xs">
-      <div className="flex-1 rounded border border-line-subtle bg-surface-2 px-2 py-1.5 text-center text-ink-2">
-        agent asks
-      </div>
-      <span className="text-ink-4">→</span>
-      <div className={`flex-1 rounded border px-2 py-1.5 text-center font-medium transition-all duration-500 ease-out ${
-        seen ? "border-warn bg-warn-soft text-warn scale-100" : "border-line bg-surface-2 text-ink-3 scale-95"}`}
-        style={{ transitionDelay: "260ms" }}>
-        code decides
-      </div>
-      <span className="text-ink-4">→</span>
-      <div className={`flex-1 rounded border px-2 py-1.5 text-center transition-all duration-500 ease-out ${
-        seen ? "border-ok bg-ok-soft text-ok" : "border-line bg-surface-2 text-ink-3"}`}
-        style={{ transitionDelay: "520ms" }}>
-        money moves
-      </div>
-    </div>
-  );
-}
-
-/* ── a fraud score accumulating from named signals ───────────────────────── */
-
-const SIGNALS = [
+const SIGNALS: [string, number][] = [
   ["4 claims in 60 days", 35],
-  ["across 3 stores", 20],
+  ["across 3 different stores", 20],
   ["account is 14 days old", 20],
-  ["evidence carries generator metadata", 25],
+  ["photo carries generator metadata", 25],
 ];
 
 export function FraudVisual() {
@@ -120,30 +93,31 @@ export function FraudVisual() {
 
   useEffect(() => {
     if (!seen) return;
-    const timers = SIGNALS.map((_, i) =>
-      setTimeout(() => setShown(i + 1), 220 + i * 260));
+    const timers = SIGNALS.map((_, i) => setTimeout(() => setShown(i + 1), 250 + i * 300));
     return () => timers.forEach(clearTimeout);
   }, [seen]);
 
-  const total = SIGNALS.slice(0, shown).reduce((sum, [, w]) => sum + (w as number), 0);
+  const total = SIGNALS.slice(0, shown).reduce((sum, [, w]) => sum + w, 0);
 
   return (
-    <div ref={ref} className="flex flex-col gap-2">
+    <div ref={ref} className="flex flex-col gap-2.5">
       <div className="flex items-baseline gap-2">
         <span className="text-xl font-bold tracking-tighter tabular">
           {(total / 100).toFixed(2)}
         </span>
-        <span className="text-xs text-ink-3">risk score</span>
+        <span className="text-xs text-ink-3">risk</span>
+        {shown === SIGNALS.length && (
+          <span className="ml-auto text-xs text-bad animate-pop">held for review</span>
+        )}
       </div>
-      <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden flex">
+      <div className="h-2 rounded-full bg-surface-3 overflow-hidden flex gap-px">
         {SIGNALS.map(([label, w], i) => (
-          <span key={label as string}
-                className="block h-full bg-warn transition-all duration-500 ease-out border-r border-surface-1 last:border-0"
+          <span key={label} className="block h-full bg-bad transition-all duration-500 ease-out"
                 style={{ width: i < shown ? `${w}%` : "0%" }} />
         ))}
       </div>
       <div className="text-xs text-ink-3 min-h-[16px]">
-        {shown > 0 ? SIGNALS[Math.min(shown, SIGNALS.length) - 1][0] : " "}
+        {shown > 0 ? SIGNALS[shown - 1][0] : " "}
       </div>
     </div>
   );
@@ -152,10 +126,10 @@ export function FraudVisual() {
 /* ── a shipment that stopped moving ──────────────────────────────────────── */
 
 const TRAIL = [
-  { label: "dispatched", tone: "ok" },
-  { label: "reached hub", tone: "ok" },
-  { label: "undelivered", tone: "warn" },
-  { label: "21 days of nothing", tone: "dead" },
+  { label: "dispatched", state: "done" },
+  { label: "reached hub", state: "done" },
+  { label: "undelivered", state: "stuck" },
+  { label: "21 days of nothing", state: "dead" },
 ];
 
 export function WatchdogVisual() {
@@ -164,21 +138,54 @@ export function WatchdogVisual() {
     <div ref={ref} className="flex items-center gap-1.5">
       {TRAIL.map((s, i) => (
         <div key={s.label} className="flex items-center gap-1.5 flex-1 last:flex-none">
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 transition-all duration-500 ease-out ${
-              s.tone === "ok" ? "bg-ok" : s.tone === "warn" ? "bg-warn" : "bg-ink-4"} ${
-              seen ? "scale-100 opacity-100" : "scale-0 opacity-0"}`}
-            style={{ transitionDelay: `${i * 180}ms` }}
-            title={s.label}
-          />
+          <span title={s.label}
+                className={`w-2 h-2 rounded-full shrink-0 transition-all duration-500 ease-out ${
+                  s.state === "done" ? "bg-ink-3"
+                    : s.state === "stuck" ? "bg-bad" : "bg-surface-4"} ${
+                  seen ? "scale-100 opacity-100" : "scale-0 opacity-0"}`}
+                style={{ transitionDelay: `${i * 170}ms` }} />
           {i < TRAIL.length - 1 && (
-            <span className={`h-px flex-1 transition-all duration-500 ease-out ${
-              i === TRAIL.length - 2 ? "bg-ink-4 border-t border-dashed" : "bg-line-strong"}`}
-              style={{ opacity: seen ? 1 : 0, transitionDelay: `${i * 180 + 90}ms` }} />
+            <span className={`h-px flex-1 transition-opacity duration-500 ease-out ${
+              i === TRAIL.length - 2
+                ? "border-t border-dashed border-line-strong"
+                : "bg-line-strong"}`}
+              style={{ opacity: seen ? 1 : 0, transitionDelay: `${i * 170 + 90}ms` }} />
           )}
         </div>
       ))}
-      <span className="text-xs text-warn ml-1 shrink-0">stalled</span>
+      <span className={`text-xs text-bad ml-1 shrink-0 transition-opacity duration-500 ${
+        seen ? "opacity-100" : "opacity-0"}`} style={{ transitionDelay: "760ms" }}>
+        opened itself
+      </span>
+    </div>
+  );
+}
+
+/* ── the refund and its audit entry, written together ────────────────────── */
+
+const LEDGER = [
+  ["refund", "₹749 · gateway"],
+  ["clause", "CL-4.2"],
+  ["approved by", "auto"],
+  ["written", "same transaction"],
+];
+
+export function LedgerVisual() {
+  const [ref, seen] = useInView<HTMLDivElement>();
+  return (
+    <div ref={ref} className="rounded-xl border border-line-subtle divide-y divide-line-subtle overflow-hidden">
+      {LEDGER.map(([k, v], i) => (
+        <div key={k}
+             className="flex justify-between px-3 py-1.5 text-xs transition-all duration-500 ease-out"
+             style={{
+               opacity: seen ? 1 : 0,
+               transform: seen ? "none" : "translateY(4px)",
+               transitionDelay: `${i * 120}ms`,
+             }}>
+          <span className="text-ink-3">{k}</span>
+          <span className="font-mono text-ink">{v}</span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import {
   PLATFORMS, REQUIRED_ENDPOINTS, SIGNATURE_CODE, buildLlmsText, type PlatformId,
 } from "@/lib/snippets";
 import { Reveal } from "@/components/motion";
-import { Badge, Brand, Button, Eyebrow, LinkButton, ThemeToggle, useToast } from "@/components/ui";
+import { Badge, Brand, Button, Eyebrow, LinkButton, useToast } from "@/components/ui";
 
 type Mode = "guide" | "llms";
 
@@ -33,7 +33,7 @@ function ChangeList({ items }: { items: [string, string][] }) {
     <div className="rounded-md border border-line-subtle divide-y divide-line-subtle">
       {items.map(([what, where]) => (
         <div key={what} className="flex gap-3 px-3.5 py-2.5">
-          <span className="text-ok shrink-0">+</span>
+          <span className="text-accent shrink-0">+</span>
           <div className="min-w-0">
             <div className="text-base">{what}</div>
             <div className="font-mono text-xs text-ink-3 truncate">{where}</div>
@@ -83,7 +83,6 @@ export default function DocsPage() {
             <span className="text-ink-2">Integration</span>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <LinkButton href="/dashboard" size="sm">Dashboard</LinkButton>
           </div>
         </div>
@@ -129,7 +128,7 @@ export default function DocsPage() {
                 <h2 className="text-xl font-semibold tracking-tight">
                   Put the widget on your order page
                 </h2>
-                <Badge tone="ok">~5 minutes</Badge>
+                <Badge tone="accent">~5 minutes</Badge>
               </div>
               <p className="mt-3 text-ink-2">
                 One script tag on any page that renders a single order. It adds a
@@ -184,7 +183,7 @@ export default function DocsPage() {
                 <h2 className="text-xl font-semibold tracking-tight">
                   Answer six questions about an order
                 </h2>
-                <Badge tone="warn">~1 hour</Badge>
+                <Badge tone="attention">~1 hour</Badge>
               </div>
               <p className="mt-3 text-ink-2">
                 Rezo calls your backend to check every claim against reality. Six endpoints are
@@ -357,7 +356,7 @@ Do not put the secret key anywhere the browser can reach it.`}
               </div>
             </div>
 
-            <div className="rounded-lg border border-warn bg-warn-soft p-4">
+            <div className="rounded-lg border border-line-strong bg-surface-2 p-4">
               <div className="font-semibold">Review the diff before you merge it</div>
               <p className="text-base mt-1">
                 An assistant writing your refund endpoint is writing code that moves money. The

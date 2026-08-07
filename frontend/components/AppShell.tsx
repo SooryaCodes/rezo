@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { useAuth } from "@/lib/useAuth";
-import { Brand, Skeleton, ThemeToggle } from "./ui";
+import { Brand, Skeleton } from "./ui";
 
 const NAV = [
   { key: "disputes", label: "Disputes", href: "/dashboard?tab=disputes" },
@@ -53,7 +53,7 @@ export function AppShell({ active, badge, children }: {
               active === item.key ? "bg-accent" : "bg-ink-4")} />
             {item.label}
             {item.key === "disputes" && !!badge && (
-              <span className="ml-auto text-xs font-bold text-warn bg-warn-soft rounded-sm px-1.5">
+              <span className="ml-auto text-xs font-bold text-ink bg-surface-2 rounded-sm px-1.5">
                 {badge}
               </span>
             )}
@@ -77,7 +77,6 @@ export function AppShell({ active, badge, children }: {
 
         <div className="hidden lg:flex items-center justify-between px-2 pt-2">
           <button onClick={signOut} className="text-sm text-ink-3 hover:text-ink">Sign out</button>
-          <ThemeToggle />
         </div>
       </aside>
 

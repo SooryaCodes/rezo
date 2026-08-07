@@ -9,7 +9,7 @@ import "reactflow/dist/style.css";
 import { api, streamEvents, type AgentEvent, type Dispute, type DisputeRow } from "@/lib/api";
 import { rupees, titleCase } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Card, Eyebrow, Panel, Skeleton } from "@/components/ui";
+import { Badge, Card, Eyebrow, Panel, Select, Skeleton } from "@/components/ui";
 
 type NodeState = "idle" | "live" | "done" | "frozen" | "blocked";
 type AgentNodeData = { label: string; role: string; state: NodeState; detail: string };
@@ -25,12 +25,12 @@ function AgentNode({ data }: NodeProps<AgentNodeData>) {
     idle: "border-line bg-surface-1",
     live: "border-accent bg-accent-soft shadow-[0_0_0_4px_var(--accent-soft)]",
     done: "border-line-strong bg-surface-1",
-    frozen: "border-warn bg-warn-soft",
+    frozen: "border-line-strong bg-surface-2",
     blocked: "border-bad bg-bad-soft",
   };
   const nameTone: Record<NodeState, string> = {
     idle: "text-ink-3", live: "text-accent", done: "text-ink",
-    frozen: "text-warn", blocked: "text-bad",
+    frozen: "text-ink", blocked: "text-bad",
   };
 
   return (
@@ -40,8 +40,8 @@ function AgentNode({ data }: NodeProps<AgentNodeData>) {
       <div className="text-2xs text-ink-3">{data.role}</div>
       {data.detail && (
         <div className={`text-2xs mt-1 tabular ${
-          data.state === "frozen" ? "text-warn"
-            : data.state === "blocked" ? "text-bad" : "text-ok"}`}>
+          data.state === "frozen" ? "text-ink"
+            : data.state === "blocked" ? "text-bad" : "text-accent"}`}>
           {data.detail}
         </div>
       )}
@@ -174,15 +174,17 @@ export default function ConsolePage() {
             The graph below is the graph in the engine, node for node.
           </p>
         </div>
-        <select value={caseId ?? ""} onChange={(e) => setCaseId(e.target.value)}
-                className="h-8 px-2 pr-7 rounded border border-line bg-surface-1 text-base appearance-none cursor-pointer min-w-[280px]">
-          {cases.length === 0 && <option>No cases yet</option>}
-          {cases.map((c) => (
-            <option key={c.dispute_id} value={c.dispute_id}>
-              {c.dispute_id} · {c.buyer_name} · {titleCase(c.claim_type)} {rupees(c.claim_value)}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={caseId ?? ""}
+          onChange={setCaseId}
+          className="min-w-[300px]"
+          placeholder={cases.length ? "Pick a case" : "No cases yet"}
+          options={cases.map((c) => ({
+            value: c.dispute_id,
+            label: `${c.buyer_name} · ${titleCase(c.claim_type)} ${rupees(c.claim_value)}`,
+            hint: c.dispute_id,
+          }))}
+        />
       </header>
 
       <div className="grid xl:grid-cols-[1fr_380px] gap-5 items-start">
@@ -192,8 +194,8 @@ export default function ConsolePage() {
               ? `${dispute.dispute_id} · ${titleCase(dispute.claim_type)} · ${rupees(dispute.claim_value)}`
               : "Select a case"}
             action={dispute && (
-              <Badge tone={dispute.status === "closed" ? "ok"
-                : dispute.status.startsWith("awaiting") ? "warn" : "live"}>
+              <Badge tone={dispute.status === "closed" ? "accent"
+                : dispute.status.startsWith("awaiting") ? "attention" : "accent"}>
                 {titleCase(dispute.status)}
               </Badge>
             )}
@@ -235,7 +237,7 @@ export default function ConsolePage() {
 
         <Panel
           title="Event stream"
-          action={<Badge tone="live" dot>live</Badge>}
+          action={<Badge tone="accent" dot>live</Badge>}
           className="xl:sticky xl:top-5"
         >
           <div ref={streamRef} className="h-[560px] overflow-y-auto px-4 py-3 font-mono text-sm">
@@ -249,7 +251,7 @@ export default function ConsolePage() {
                 </span>
                 <span className="text-accent shrink-0 w-[76px] truncate">{ev.agent}</span>
                 <span className={`break-words ${
-                  ev.kind === "gate" ? "text-warn"
+                  ev.kind === "gate" ? "text-ink"
                     : ev.kind === "error" ? "text-bad"
                     : ev.kind === "decision" ? "text-ink font-medium" : "text-ink-2"}`}>
                   {ev.message}

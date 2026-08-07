@@ -8,15 +8,15 @@ import { OUTCOME_LABEL, mediaUrl, rupees, timeAgo, titleCase } from "@/lib/forma
 import { AppShell } from "@/components/AppShell";
 import { CountUp } from "@/components/motion";
 import {
-  Badge, Button, Card, EmptyState, Eyebrow, Panel, Sheet, Skeleton, useToast,
+  Badge, Button, Card, EmptyState, Eyebrow, Panel, Select, Sheet, Skeleton, useToast,
 } from "@/components/ui";
 import { IntegrationPanel } from "@/components/IntegrationPanel";
 import { PolicyPanel } from "@/components/PolicyPanel";
 
 function outcomeTone(outcome: string | null) {
   if (!outcome) return "neutral" as const;
-  if (["full_refund", "partial_refund", "replacement", "coupon"].includes(outcome)) return "ok" as const;
-  if (outcome === "escalate") return "warn" as const;
+  if (["full_refund", "partial_refund", "replacement", "coupon"].includes(outcome)) return "accent" as const;
+  if (outcome === "escalate") return "attention" as const;
   return "neutral" as const;
 }
 
@@ -111,12 +111,10 @@ function DashboardInner() {
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={runWatchdog}>Run watchdog</Button>
-              <select value={filter} onChange={(e) => setFilter(e.target.value)}
-                      className="h-8 px-2 pr-7 rounded border border-line bg-surface-1 text-base appearance-none cursor-pointer">
-                <option value="">All</option>
-                <option value="awaiting_seller_approval">Needs you</option>
-                <option value="closed">Resolved</option>
-              </select>
+              <Select value={filter} onChange={setFilter} className="w-[160px]"
+                      options={[{ value: "", label: "All cases" },
+                                { value: "awaiting_seller_approval", label: "Needs you" },
+                                { value: "closed", label: "Resolved" }]} />
             </div>
           </header>
 
@@ -150,13 +148,13 @@ function DashboardInner() {
                     <span className="block text-xs text-ink-3">
                       <span className="font-mono">{r.order_id}</span> · {timeAgo(r.created_at)}
                       {r.opened_by === "watchdog" && (
-                        <span className="text-warn"> · opened by watchdog</span>)}
+                        <span className="text-ink"> · opened by watchdog</span>)}
                     </span>
                   </span>
                   <span className="font-semibold tabular">{rupees(r.claim_value)}</span>
                   {(r.fraud_score ?? 0) >= 0.6 && <Badge tone="bad">Fraud risk</Badge>}
                   {r.status === "awaiting_seller_approval"
-                    ? <Badge tone="warn">Needs you</Badge>
+                    ? <Badge tone="attention">Needs you</Badge>
                     : <Badge tone={outcomeTone(r.outcome)}>
                         {r.outcome ? OUTCOME_LABEL[r.outcome] ?? titleCase(r.outcome) : "Open"}
                       </Badge>}
@@ -267,7 +265,7 @@ function Dossier({ dispute }: { dispute: Dispute }) {
   return (
     <>
       {dispute.status === "awaiting_seller_approval" && (
-        <div className="rounded-lg bg-warn-soft p-4">
+        <div className="rounded-lg bg-surface-2 p-4">
           <div className="font-semibold">{dispute.dossier?.headline}</div>
           <p className="text-sm mt-1">{dispute.guardrail?.reasons?.join(" ")}</p>
         </div>
@@ -287,7 +285,7 @@ function Dossier({ dispute }: { dispute: Dispute }) {
         <Eyebrow>Findings</Eyebrow>
         <div className="divide-y divide-line-subtle">
           <Finding label="Evidence">
-            <Badge tone={e.verified ? "ok" : "bad"}>
+            <Badge tone={e.verified ? "accent" : "bad"}>
               {e.verified ? "Verified" : "Not verified"}
             </Badge>
             <span className="text-sm text-ink-3 ml-1.5">
@@ -295,14 +293,14 @@ function Dossier({ dispute }: { dispute: Dispute }) {
             </span>
             <p className="text-sm text-ink-3 mt-1">{e.notes}</p>
             {!!e.forensics_flags?.length && (
-              <p className="text-sm text-warn mt-1">
+              <p className="text-sm text-ink mt-1">
                 {e.forensics_flags.map((x) => titleCase(x)).join(", ")}
               </p>
             )}
           </Finding>
 
           <Finding label="Policy">
-            <Badge tone={p.eligible ? "ok" : "neutral"}>
+            <Badge tone={p.eligible ? "accent" : "neutral"}>
               {p.eligible ? "Eligible" : "Not eligible"}
             </Badge>
             {p.clause_id && <span className="font-mono text-xs ml-1.5">{p.clause_id}</span>}
@@ -310,7 +308,7 @@ function Dossier({ dispute }: { dispute: Dispute }) {
           </Finding>
 
           <Finding label="Fraud">
-            <Badge tone={(f.score ?? 0) >= 0.6 ? "bad" : "ok"}>
+            <Badge tone={(f.score ?? 0) >= 0.6 ? "bad" : "accent"}>
               {(f.score ?? 0).toFixed(2)}
             </Badge>
             <p className="text-sm text-ink-3 mt-1">{(f.signals ?? []).join("; ")}</p>

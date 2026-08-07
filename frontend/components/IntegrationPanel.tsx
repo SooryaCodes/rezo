@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Store } from "@/lib/api";
 import { rupees, timeAgo } from "@/lib/format";
-import { Badge, Button, Card, Eyebrow, Panel, Skeleton, useToast } from "./ui";
+import { Badge, Button, Eyebrow, Panel, Skeleton, Slider, useToast } from "./ui";
 
 type Check = { capability: string; required: boolean; state: string; detail: string };
 type Status = {
@@ -67,9 +67,7 @@ export function IntegrationPanel({ store }: { store: Store }) {
             <span className="text-ink-2">Resolve on its own up to</span>
             <span className="text-xl font-bold tabular">{rupees(cap)}</span>
           </div>
-          <input type="range" min={0} max={5000} step={100} value={cap}
-                 onChange={(e) => setCap(parseInt(e.target.value, 10))}
-                 className="w-full my-3 accent-[var(--accent)]" />
+          <Slider value={cap} onChange={setCap} min={0} max={5000} step={100} className="my-2" />
           <p className="text-sm text-ink-3">
             Enforced in code before a refund is called, not by asking the model to behave.
             Evidence quality scales it down further: an unverifiable upload unlocks a quarter
@@ -92,7 +90,7 @@ export function IntegrationPanel({ store }: { store: Store }) {
         {!status ? <div className="p-5"><Skeleton className="w-1/2" /></div> : (
           <>
             <div className="px-5 py-3 border-b border-line-subtle flex items-center gap-2">
-              <Badge tone={status.ready ? "ok" : "warn"} dot>
+              <Badge tone={status.ready ? "accent" : "attention"} dot>
                 {status.ready ? "Ready" : "Incomplete"}
               </Badge>
               <span className="text-sm text-ink-3">
@@ -105,7 +103,7 @@ export function IntegrationPanel({ store }: { store: Store }) {
               {status.checks.map((c) => (
                 <div key={c.capability} className="flex items-center gap-2 py-1">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    c.state === "ok" ? "bg-ok" : c.required ? "bg-bad" : "bg-ink-4"}`} />
+                    c.state === "ok" ? "bg-accent" : c.required ? "bg-bad" : "bg-ink-4"}`} />
                   <span className="font-mono text-sm">{c.capability}</span>
                   {c.required && <Badge>required</Badge>}
                   <span className="flex-1" />

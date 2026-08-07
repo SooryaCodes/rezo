@@ -222,7 +222,15 @@ def resolve(token: str) -> dict:
         if datetime.now(timezone.utc) > expires:
             raise AuthError("Session expired, please sign in again")
         account = db.get(Account, session.account_id)
+        if account is None:
+            raise AuthError("This account no longer exists")
         store = db.get(Store, account.store_id)
+        if store is None:
+            # A sample workspace can be reset out from under its session. Fail
+            # cleanly so the client signs out rather than showing a dashboard
+            # wired to a store that is not there.
+            db.delete(session)
+            raise AuthError("That workspace is no longer available")
         return {"account": {"id": account.id, "email": account.email,
                             "name": account.name, "store_id": account.store_id,
                             "onboarding_step": account.onboarding_step,

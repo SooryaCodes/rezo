@@ -145,13 +145,13 @@ export function AuthFlow({ intent }: { intent: "signin" | "signup" }) {
           </Field>
           <Field label="What do you sell?"
                  hint="Different categories get different default return windows.">
-            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="clothing">Clothing and accessories</option>
-              <option value="electronics">Electronics and gadgets</option>
-              <option value="home">Home and furnishing</option>
-              <option value="beauty">Beauty and personal care</option>
-              <option value="general">Something else</option>
-            </Select>
+            <Select value={category} onChange={setCategory} options={[
+              { value: "clothing", label: "Clothing and accessories", hint: "7 day window by default" },
+              { value: "electronics", label: "Electronics and gadgets", hint: "10 day window by default" },
+              { value: "home", label: "Home and furnishing", hint: "5 day window by default" },
+              { value: "beauty", label: "Beauty and personal care", hint: "5 day window by default" },
+              { value: "general", label: "Something else", hint: "7 day window by default" },
+            ]} />
           </Field>
           {error && <p className="text-sm text-bad">{error}</p>}
           <Button type="submit" variant="primary" size="lg" block
@@ -175,7 +175,7 @@ export function AuthFlow({ intent }: { intent: "signin" | "signup" }) {
       </div>
 
       {localCode && (
-        <div className="rounded-md border border-warn bg-warn-soft px-3.5 py-3">
+        <div className="rounded-md border border-line-strong bg-surface-2 px-3.5 py-3">
           <p className="text-sm">
             No mail provider is connected in this build, so here is your code:
             <b className="font-mono text-md ml-1.5 tracking-[0.2em]">{localCode}</b>

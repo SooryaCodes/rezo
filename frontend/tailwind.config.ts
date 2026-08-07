@@ -9,11 +9,8 @@ import type { Config } from "tailwindcss";
  * the button colour it would stop meaning anything.
  */
 const config: Config = {
-  // Dark follows the attribute our theme toggle stamps on the root, not the OS
-  // preference. If these two disagreed, a `dark:` utility would fire while the
-  // CSS custom properties stayed light, which is exactly how a page ends up
-  // with dark backgrounds behind dark text.
-  darkMode: ["variant", ':root[data-theme="dark"] &'],
+  // One theme, committed to. A half-maintained dark mode is worse than none,
+  // and every surface here was chosen for light.
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -47,9 +44,11 @@ const config: Config = {
           hover: "var(--action-hover)",
           ink: "var(--action-ink)",
         },
-        ok: { DEFAULT: "var(--success)", soft: "var(--success-soft)" },
-        warn: { DEFAULT: "var(--warn)", soft: "var(--warn-soft)" },
-        bad: { DEFAULT: "var(--danger)", soft: "var(--danger-soft)" },
+        bad: {
+          DEFAULT: "var(--danger)",
+          soft: "var(--danger-soft)",
+          line: "var(--danger-line)",
+        },
       },
       fontFamily: {
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "system-ui", "sans-serif"],

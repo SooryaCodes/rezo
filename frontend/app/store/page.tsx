@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type Order, type Store } from "@/lib/api";
 import { mediaUrl, rupees, timeAgo, titleCase } from "@/lib/format";
-import { Badge, Brand, Button, Eyebrow, EmptyState, Skeleton, ThemeToggle } from "@/components/ui";
+import { Badge, Brand, Button, Eyebrow, EmptyState, Select, Skeleton } from "@/components/ui";
 
 /**
  * A storefront to try the widget against.
@@ -48,17 +48,12 @@ export default function StorePage() {
           <div className="flex items-center gap-3 min-w-0">
             <Brand label={false} />
             <span className="text-ink-4">/</span>
-            <select value={storeId} onChange={(e) => setStoreId(e.target.value)}
-                    className="h-8 px-2 pr-7 rounded border border-line bg-surface-1 text-base appearance-none cursor-pointer">
-              {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <Select value={storeId} onChange={setStoreId} className="w-[190px]"
+                    options={stores.map((s) => ({ value: s.id, label: s.name }))} />
           </div>
           <div className="flex items-center gap-2">
-            <select value={buyerId} onChange={(e) => setBuyerId(e.target.value)}
-                    className="h-8 px-2 pr-7 rounded border border-line bg-surface-1 text-base appearance-none cursor-pointer">
-              {buyers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </select>
-            <ThemeToggle />
+            <Select value={buyerId} onChange={setBuyerId} className="w-[170px]"
+                    options={buyers.map(([id, name]) => ({ value: id, label: name }))} />
           </div>
         </div>
       </nav>
@@ -103,8 +98,8 @@ export default function StorePage() {
                         </div>
                       </div>
                       {o.delivered_at
-                        ? <Badge tone="ok" dot>Delivered {timeAgo(o.delivered_at)}</Badge>
-                        : <Badge tone={idle >= 7 ? "warn" : "neutral"}>
+                        ? <Badge tone="accent" dot>Delivered {timeAgo(o.delivered_at)}</Badge>
+                        : <Badge tone={idle >= 7 ? "attention" : "neutral"}>
                             {idle >= 7 ? `No movement for ${idle} days` : titleCase(o.status)}
                           </Badge>}
                     </div>
@@ -114,8 +109,8 @@ export default function StorePage() {
                         {(o.shipment_events ?? []).map((e, i) => (
                           <span key={i} title={e.status}
                                 className={`w-1.5 h-1.5 rounded-full ${
-                                  e.status === "delivered" ? "bg-ok"
-                                    : e.status === "undelivered" ? "bg-warn" : "bg-line-strong"}`} />
+                                  e.status === "delivered" ? "bg-accent"
+                                    : e.status === "undelivered" ? "bg-ink-3" : "bg-line-strong"}`} />
                         ))}
                       </div>
                       <span>{o.courier} {o.tracking_id}</span>

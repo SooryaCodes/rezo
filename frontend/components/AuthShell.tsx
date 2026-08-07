@@ -53,7 +53,7 @@ export function AsideCard({ quote, attribution, points }: {
         <ul className="list-none p-0 m-0 flex flex-col gap-3">
           {points.map((p) => (
             <li key={p} className="flex gap-2.5 text-base text-ink">
-              <span className="text-ok shrink-0">✓</span>
+              <span className="text-accent shrink-0">✓</span>
               <span>{p}</span>
             </li>
           ))}

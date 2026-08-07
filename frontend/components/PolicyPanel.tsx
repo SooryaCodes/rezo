@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Badge, Button, Eyebrow, Panel, Skeleton, useToast } from "./ui";
+import { Badge, Button, Eyebrow, Panel, Select, Skeleton } from "./ui";
 
 type Pack = { version: string; effective_from: string; clauses: any[] };
 
@@ -17,7 +17,6 @@ type Pack = { version: string; effective_from: string; clauses: any[] };
 export function PolicyPanel({ storeId }: { storeId: string }) {
   const [packs, setPacks] = useState<Pack[] | null>(null);
   const [showing, setShowing] = useState(0);
-  const toast = useToast();
 
   useEffect(() => {
     api.policy(storeId)
@@ -40,14 +39,13 @@ export function PolicyPanel({ storeId }: { storeId: string }) {
           </p>
         </div>
         {packs.length > 1 && (
-          <select value={showing} onChange={(e) => setShowing(parseInt(e.target.value, 10))}
-                  className="h-8 px-2 pr-7 rounded border border-line bg-surface-1 text-base appearance-none cursor-pointer">
-            {packs.map((p, i) => (
-              <option key={p.version} value={i}>
-                {p.version}{i === packs.length - 1 ? " (current)" : ""}
-              </option>
-            ))}
-          </select>
+          <Select value={String(showing)} onChange={(v) => setShowing(parseInt(v, 10))}
+                  className="w-[190px]"
+                  options={packs.map((pack, i) => ({
+                    value: String(i),
+                    label: pack.version,
+                    hint: i === packs.length - 1 ? "in force" : "older orders",
+                  }))} />
         )}
       </header>
 
@@ -55,7 +53,7 @@ export function PolicyPanel({ storeId }: { storeId: string }) {
         title={
           <span className="flex items-center gap-2">
             {pack?.version}
-            {isCurrent ? <Badge tone="ok">In force</Badge>
+            {isCurrent ? <Badge tone="accent">In force</Badge>
                        : <Badge>Still deciding older orders</Badge>}
           </span>
         }
@@ -73,7 +71,7 @@ export function PolicyPanel({ storeId }: { storeId: string }) {
                 <span className="font-semibold">{c.title}</span>
                 <Badge>{c.window_days} day window</Badge>
                 {!!c.exclusions?.length && (
-                  <Badge tone="warn">excludes {c.exclusions.join(", ").replace(/_/g, " ")}</Badge>
+                  <Badge tone="attention">excludes {c.exclusions.join(", ").replace(/_/g, " ")}</Badge>
                 )}
               </div>
               <p className="text-base text-ink-2 mt-1.5">{c.text}</p>

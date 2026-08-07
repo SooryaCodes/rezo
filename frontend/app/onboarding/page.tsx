@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import { rupees } from "@/lib/format";
 import { Aurora } from "@/components/motion";
-import { Badge, Brand, Button, Eyebrow, Field, Input, Skeleton, useToast } from "@/components/ui";
+import { Badge, Brand, Button, Eyebrow, Skeleton, Slider, useToast } from "@/components/ui";
 
 type Choice = { value: string; label: string };
 type Question = { key: string; q: string; help?: string; options: Choice[]; value: string };
@@ -134,7 +134,7 @@ export default function OnboardingPage() {
               return (
                 <li key={label} className="flex items-center gap-3">
                   <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold shrink-0 transition-colors duration-base ${
-                    done ? "bg-ok text-white"
+                    done ? "bg-accent text-white"
                          : active ? "bg-action text-action-ink"
                                   : "bg-white/60 dark:bg-white/10 text-ink-3"}`}>
                     {done ? "✓" : n}
@@ -240,12 +240,9 @@ export default function OnboardingPage() {
                 <div className="text-4xl font-bold tracking-tightest tabular">
                   {cap === 0 ? "Everything comes to me" : rupees(cap)}
                 </div>
-                <input type="range" min={0} max={5000} step={100} value={cap}
-                       onChange={(e) => setCap(parseInt(e.target.value, 10))}
-                       className="w-full my-4 accent-[var(--accent)]" />
-                <div className="flex justify-between text-xs text-ink-3">
-                  <span>₹0 — I approve everything</span><span>₹5,000</span>
-                </div>
+                <Slider value={cap} onChange={setCap} min={0} max={5000} step={100}
+                        className="my-3"
+                        marks={["₹0 — I approve everything", "₹5,000"]} />
 
                 <div className="h-px bg-line-subtle my-5" />
 
@@ -332,7 +329,7 @@ export default function OnboardingPage() {
 
           {step === 4 && (
             <>
-              <div className="w-12 h-12 rounded-full bg-ok-soft text-ok grid place-items-center text-xl">
+              <div className="w-12 h-12 rounded-full bg-accent-soft text-accent grid place-items-center text-xl">
                 ✓
               </div>
               <header>

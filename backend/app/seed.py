@@ -288,21 +288,47 @@ def _key(prefix: str, store: str) -> str:
     return f"{prefix}_{hashlib.sha256((prefix + store).encode()).hexdigest()[:24]}"
 
 
+# The workspaces this file owns. A reset touches these and nothing else, so a
+# real merchant account created through sign-up is never destroyed by someone
+# clicking "reset demo data".
+SAMPLE_STORE_IDS = ("st_rehana", "st_techkart", "st_urbanleaf")
+
+
 def seed(reset: bool = False) -> dict:
     init_db()
     media = seed_media()
     now = _now()
 
     with session_scope() as db:
-        if db.query(Store).count() and not reset:
+        already = db.query(Store).filter(Store.id.in_(SAMPLE_STORE_IDS)).count()
+        if already and not reset:
             return {"seeded": False, "reason": "already populated"}
 
         if reset:
             from .db.models import (AuditEntry, CaptureSession, Dispute,
                                     Evidence, RefundLedger)
-            for model in (AuditEntry, RefundLedger, Evidence, CaptureSession,
-                          Dispute, Precedent, Order, Buyer, PolicyPack, Store):
-                db.query(model).delete()
+
+            sample_disputes = [
+                d.id for d in db.query(Dispute)
+                .filter(Dispute.store_id.in_(SAMPLE_STORE_IDS)).all()
+            ]
+            if sample_disputes:
+                for model in (AuditEntry, RefundLedger, Evidence, CaptureSession):
+                    db.query(model).filter(
+                        model.dispute_id.in_(sample_disputes)).delete(
+                        synchronize_session=False)
+            db.query(Dispute).filter(
+                Dispute.store_id.in_(SAMPLE_STORE_IDS)).delete(
+                synchronize_session=False)
+            for model in (Precedent, Order, PolicyPack):
+                db.query(model).filter(
+                    model.store_id.in_(SAMPLE_STORE_IDS)).delete(
+                    synchronize_session=False)
+            db.query(Store).filter(Store.id.in_(SAMPLE_STORE_IDS)).delete(
+                synchronize_session=False)
+            db.query(Buyer).filter(
+                Buyer.id.in_(("by_arjun", "by_rahul", "by_meera"))).delete(
+                synchronize_session=False)
 
         # ---------------- stores ----------------
         stores = [

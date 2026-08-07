@@ -160,7 +160,7 @@ function WidgetInner() {
               order.delivered_at ? `delivered ${timeAgo(order.delivered_at)}` : titleCase(order.status)}`}
           </div>
         </div>
-        <Badge tone="live" dot>Rezo</Badge>
+        <Badge tone="accent" dot>Rezo</Badge>
       </div>
 
       {/* conversation */}
@@ -183,7 +183,7 @@ function WidgetInner() {
               <div key={p.agent}
                    className={`flex items-center gap-2 px-3 py-2 text-sm ${
                      p.done ? "bg-surface-1" : "bg-accent-soft"}`}>
-                <span className={`w-3.5 text-center ${p.done ? "text-ok" : "text-accent"}`}>
+                <span className={`w-3.5 text-center ${p.done ? "text-accent" : "text-accent"}`}>
                   {p.done ? "✓" : "●"}
                 </span>
                 <span className="flex-1">{p.label}</span>
@@ -200,8 +200,8 @@ function WidgetInner() {
 
         {(dispute?.status === "awaiting_seller_approval" ||
           dispute?.status === "awaiting_platform_review") && (
-          <div className="border border-warn rounded-lg p-4 bg-surface-1">
-            <Badge tone="warn">Being reviewed</Badge>
+          <div className="border border-line-strong rounded-lg p-4 bg-surface-1">
+            <Badge tone="attention">Being reviewed</Badge>
             <p className="text-sm mt-2">
               This one is above what I can settle on my own, so a person is looking at it now.
               You&rsquo;ll hear back within about two hours, and everything I checked is attached
@@ -336,7 +336,7 @@ function CaptureStage({ challenge, onSubmit, busy }: {
           </Button>
         )}
         {cameraReady === false && (
-          <p className="text-sm text-warn mt-1">
+          <p className="text-sm text-ink mt-1">
             We couldn&rsquo;t open your camera. You can still send a photo, but an uploaded file
             unlocks less and may be reviewed by a person.
           </p>
@@ -386,7 +386,7 @@ function Decision({ dispute }: { dispute: Dispute }) {
         )}
 
         {dispute.refund && (
-          <div className="m-4 mt-0 px-3 py-2.5 border-l-2 border-ok bg-surface-2 rounded-r text-sm text-ink-2">
+          <div className="m-4 mt-0 px-3 py-2.5 border-l-2 border-accent-line bg-surface-2 rounded-r text-sm text-ink-2">
             Sent to your original payment method via {dispute.refund.method.replace("_", " ")}.
             Reference <span className="font-mono text-xs">{dispute.refund.reference}</span>.
           </div>
