@@ -4,40 +4,45 @@ import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The widget, playing itself.
+ * The widget, playing itself over a merchant's order page.
  *
- * This is what a buyer actually sees: a launcher on a store page, a panel that
- * slides up, a short conversation, a camera step, and an answer with the reason
- * attached. It loops, so someone who lands mid-way still sees the whole thing
- * within a few seconds.
+ * It loops, so someone landing mid-way still sees the whole arc within a few
+ * seconds. Deliberately a mockup rather than a live call: on a marketing page
+ * the job is to show the shape of the experience, and a real request would add
+ * latency and failure modes to the one moment that has to feel effortless.
  *
- * Deliberately a mockup rather than a live call. On a marketing page the job is
- * to show the shape of the experience; a real request would add latency,
- * failure modes and a spinner to the one moment that has to feel effortless.
+ * The consent step is not decoration. The product asks before it opens a
+ * camera, and the page has to show that, because "we turned your camera on"
+ * is the single thing most likely to make a buyer close the tab.
  */
 
+const PHOTO =
+  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=200&q=70&auto=format&fit=crop";
+
 type Beat =
-  | { kind: "user"; text: string }
   | { kind: "agent"; text: string }
+  | { kind: "user"; text: string }
   | { kind: "typing" }
+  | { kind: "consent" }
   | { kind: "camera" }
   | { kind: "steps" }
-  | { kind: "decision" };
+  | { kind: "receipt" };
 
 const SCRIPT: { beat: Beat; after: number }[] = [
-  { beat: { kind: "agent", text: "Hi Arjun. I can see your Cotton Kurti Set, delivered this morning. What went wrong?" }, after: 700 },
-  { beat: { kind: "typing" }, after: 1100 },
-  { beat: { kind: "user", text: "the sleeve is torn, I want a refund" }, after: 900 },
-  { beat: { kind: "agent", text: "Sorry about that. Let me see it — I'll open your camera for a few seconds." }, after: 1100 },
-  { beat: { kind: "camera" }, after: 2400 },
-  { beat: { kind: "steps" }, after: 2600 },
-  { beat: { kind: "decision" }, after: 3400 },
+  { beat: { kind: "agent", text: "Hi Arjun. I can see your Cotton Kurti Set, delivered this morning. What went wrong?" }, after: 600 },
+  { beat: { kind: "typing" }, after: 1000 },
+  { beat: { kind: "user", text: "the sleeve is torn where the seam meets the cuff" }, after: 900 },
+  { beat: { kind: "agent", text: "Sorry about that. To sort it out now I need to see the tear — may I open your camera for about twenty seconds?" }, after: 1100 },
+  { beat: { kind: "consent" }, after: 1600 },
+  { beat: { kind: "camera" }, after: 2300 },
+  { beat: { kind: "steps" }, after: 2500 },
+  { beat: { kind: "receipt" }, after: 3200 },
 ];
 
 const STEPS = [
-  { label: "Evidence verified", meta: "live capture" },
-  { label: "Policy checked", meta: "clause 4.2" },
-  { label: "Account reviewed", meta: "no flags" },
+  { label: "Photo checked against your order", meta: "matches" },
+  { label: "Return policy applied", meta: "clause 4.2" },
+  { label: "Account reviewed", meta: "6 orders, no claims" },
 ];
 
 export function ChatMockup({ className }: { className?: string }) {
@@ -50,7 +55,6 @@ export function ChatMockup({ className }: { className?: string }) {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     const clear = () => { timers.current.forEach(clearTimeout); timers.current = []; };
 
     const play = () => {
@@ -60,34 +64,31 @@ export function ChatMockup({ className }: { className?: string }) {
       setOpen(false);
 
       if (reduced) {
-        // No motion: show the finished conversation rather than an empty frame.
         setOpen(true);
         setVisible(SCRIPT.map((s) => s.beat).filter((b) => b.kind !== "typing"));
         setStepsShown(STEPS.length);
         return;
       }
 
-      let t = 600;
+      let t = 500;
       timers.current.push(setTimeout(() => setOpen(true), t));
-      t += 500;
+      t += 450;
 
       SCRIPT.forEach(({ beat, after }) => {
         t += after;
         timers.current.push(setTimeout(() => {
           setVisible((current) => {
-            // a typing bubble is replaced by what was being typed
             const trimmed = current.filter((b) => b.kind !== "typing");
             return beat.kind === "user" ? [...trimmed, beat] : [...current, beat];
           });
           if (beat.kind === "steps") {
             STEPS.forEach((_, i) =>
-              timers.current.push(setTimeout(() => setStepsShown(i + 1), 500 + i * 620)));
+              timers.current.push(setTimeout(() => setStepsShown(i + 1), 450 + i * 560)));
           }
         }, t));
       });
 
-      // hold on the answer, then run it again
-      t += 5200;
+      t += 5400;
       timers.current.push(setTimeout(play, t));
     };
 
@@ -97,7 +98,6 @@ export function ChatMockup({ className }: { className?: string }) {
       entries.forEach((e) => (e.isIntersecting ? play() : clear()));
     }, { threshold: 0.3 });
     observer.observe(el);
-
     return () => { observer.disconnect(); clear(); };
   }, []);
 
@@ -107,27 +107,25 @@ export function ChatMockup({ className }: { className?: string }) {
 
   return (
     <div ref={host} className={clsx("relative", className)}>
-      {/* the merchant's page, blurred back so the widget is what you read */}
-      <div className="rounded-2xl border border-line-subtle bg-surface-1 overflow-hidden
-                      shadow-[0_2px_8px_rgba(17,17,20,.05),0_24px_60px_rgba(17,17,20,.09)]">
-        <div className="h-9 border-b border-line-subtle flex items-center gap-1.5 px-3.5">
-          <span className="w-2 h-2 rounded-full bg-surface-4" />
-          <span className="w-2 h-2 rounded-full bg-surface-4" />
-          <span className="w-2 h-2 rounded-full bg-surface-4" />
+      <div className="rounded-3xl border border-line-subtle bg-surface-1 overflow-hidden
+                      shadow-[0_1px_2px_rgba(0,0,0,.04),0_24px_64px_rgba(0,0,0,.08)]">
+        <div className="h-10 border-b border-line-subtle flex items-center gap-1.5 px-4">
+          <span className="w-2 h-2 rounded-full bg-surface-3" />
+          <span className="w-2 h-2 rounded-full bg-surface-3" />
+          <span className="w-2 h-2 rounded-full bg-surface-3" />
           <span className="ml-2 text-2xs text-ink-4 font-mono">rehanascloset.in/orders</span>
         </div>
 
-        <div className="relative h-[440px] p-5">
-          {/* a faint order card: context, not content */}
-          <div className="flex gap-3 opacity-45 select-none" aria-hidden>
-            <div className="w-14 h-14 rounded-xl bg-surface-3" />
+        <div className="relative h-[452px] p-5">
+          {/* the merchant's own page, quiet behind the widget */}
+          <div className="flex gap-3 opacity-40 select-none" aria-hidden>
+            <img src={PHOTO} alt="" className="w-14 h-14 rounded-xl object-cover" />
             <div className="flex-1 pt-1">
               <div className="h-2.5 w-32 rounded bg-surface-3" />
               <div className="h-2 w-20 rounded bg-surface-2 mt-2" />
-              <div className="h-2 w-24 rounded bg-surface-2 mt-1.5" />
             </div>
           </div>
-          <div className="flex gap-3 opacity-25 mt-5 select-none" aria-hidden>
+          <div className="flex gap-3 opacity-20 mt-5 select-none" aria-hidden>
             <div className="w-14 h-14 rounded-xl bg-surface-3" />
             <div className="flex-1 pt-1">
               <div className="h-2.5 w-28 rounded bg-surface-3" />
@@ -135,30 +133,24 @@ export function ChatMockup({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* the launcher */}
           <div className={clsx(
             "absolute right-4 bottom-4 flex items-center gap-2 h-10 px-4 rounded-full",
             "bg-action text-action-ink text-[13px] font-medium",
-            "shadow-[inset_0_1px_0_rgba(255,255,255,.16),0_6px_18px_rgba(17,17,20,.18)]",
+            "shadow-[inset_0_1px_0_rgba(255,255,255,.16),0_6px_18px_rgba(0,0,0,.16)]",
             "transition-all duration-slow ease-out",
             open ? "opacity-0 translate-y-2 scale-95" : "opacity-100")}>
-            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" aria-hidden>
-              <path d="M14 8.5a5.5 5.5 0 0 1-7.9 4.96L2.5 14l1.02-3.4A5.5 5.5 0 1 1 14 8.5Z"
-                    fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-            </svg>
             Report an issue
           </div>
 
-          {/* the widget */}
           <div className={clsx(
-            "absolute right-4 bottom-4 w-[min(340px,calc(100%-2rem))] rounded-2xl",
+            "absolute right-4 bottom-4 w-[min(348px,calc(100%-2rem))] rounded-3xl",
             "bg-surface-1 border border-line overflow-hidden flex flex-col",
-            "shadow-[0_4px_16px_rgba(17,17,20,.08),0_24px_60px_rgba(17,17,20,.16)]",
+            "shadow-[0_2px_10px_rgba(0,0,0,.06),0_24px_64px_rgba(0,0,0,.14)]",
             "transition-all duration-slow ease-out origin-bottom-right",
-            open ? "opacity-100 translate-y-0 scale-100 max-h-[400px]"
+            open ? "opacity-100 translate-y-0 scale-100 max-h-[406px]"
                  : "opacity-0 translate-y-4 scale-95 max-h-0 pointer-events-none")}>
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-line-subtle">
-              <div className="w-7 h-7 rounded-lg bg-surface-3 shrink-0" />
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-line-subtle">
+              <img src={PHOTO} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">Cotton Kurti Set</div>
                 <div className="text-2xs text-ink-3 truncate">ORD-2041 · ₹749</div>
@@ -166,22 +158,22 @@ export function ChatMockup({ className }: { className?: string }) {
               <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent animate-breathe" />
             </div>
 
-            <div ref={body} className="flex-1 overflow-y-auto px-3.5 py-3 flex flex-col gap-2.5">
+            <div ref={body} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2.5">
               {visible.map((beat, i) => {
                 if (beat.kind === "agent") return (
-                  <div key={i} className="animate-pop self-start max-w-[88%] px-3 py-2 rounded-2xl
+                  <div key={i} className="animate-pop self-start max-w-[90%] px-3.5 py-2.5 rounded-2xl
                                           rounded-bl-md bg-surface-2 text-sm leading-relaxed">
                     {beat.text}
                   </div>
                 );
                 if (beat.kind === "user") return (
-                  <div key={i} className="animate-pop self-end max-w-[88%] px-3 py-2 rounded-2xl
+                  <div key={i} className="animate-pop self-end max-w-[90%] px-3.5 py-2.5 rounded-2xl
                                           rounded-br-md bg-action text-action-ink text-sm">
                     {beat.text}
                   </div>
                 );
                 if (beat.kind === "typing") return (
-                  <div key={i} className="animate-pop self-end px-3.5 py-2.5 rounded-2xl rounded-br-md
+                  <div key={i} className="animate-pop self-end px-4 py-3 rounded-2xl rounded-br-md
                                           bg-surface-2 flex gap-1">
                     {[0, 1, 2].map((d) => (
                       <span key={d} className="w-1.5 h-1.5 rounded-full bg-ink-4 animate-breathe"
@@ -189,13 +181,15 @@ export function ChatMockup({ className }: { className?: string }) {
                     ))}
                   </div>
                 );
+                if (beat.kind === "consent") return <Consent key={i} />;
                 if (beat.kind === "camera") return <CameraFrame key={i} />;
                 if (beat.kind === "steps") return (
-                  <div key={i} className="animate-pop rounded-xl border border-line-subtle divide-y divide-line-subtle">
+                  <div key={i} className="animate-pop rounded-2xl border border-line-subtle
+                                          divide-y divide-line-subtle overflow-hidden">
                     {STEPS.map((s, si) => (
                       <div key={s.label} className={clsx(
-                        "flex items-center gap-2 px-3 py-2 text-sm transition-colors duration-base",
-                        si < stepsShown ? "" : "opacity-45")}>
+                        "flex items-center gap-2 px-3 py-2 text-sm transition-opacity duration-500",
+                        si < stepsShown ? "opacity-100" : "opacity-40")}>
                         <span className={clsx("w-3.5 text-center",
                           si < stepsShown ? "text-accent" : "text-ink-4")}>
                           {si < stepsShown ? "✓" : "○"}
@@ -208,26 +202,15 @@ export function ChatMockup({ className }: { className?: string }) {
                     ))}
                   </div>
                 );
-                return (
-                  <div key={i} className="animate-pop rounded-xl border border-accent-line bg-accent-soft p-3">
-                    <div className="text-2xs font-bold uppercase tracking-wide text-ink-3">
-                      Refund approved
-                    </div>
-                    <div className="text-xl font-bold tracking-tighter tabular mt-0.5">₹749</div>
-                    <p className="text-xs text-ink-2 mt-1 leading-relaxed">
-                      Damaged on arrival, reported inside the 7 day window. Back on your card in
-                      3&ndash;5 days.
-                    </p>
-                  </div>
-                );
+                return <Receipt key={i} />;
               })}
             </div>
 
-            <div className="px-3.5 py-2.5 border-t border-line-subtle flex gap-2 items-center">
-              <div className="flex-1 h-8 rounded-full bg-surface-2 px-3 flex items-center text-2xs text-ink-4">
+            <div className="px-4 py-3 border-t border-line-subtle flex gap-2 items-center">
+              <div className="flex-1 h-9 rounded-full bg-surface-2 px-3.5 flex items-center text-2xs text-ink-4">
                 Message…
               </div>
-              <div className="w-8 h-8 rounded-full bg-action grid place-items-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-action grid place-items-center shrink-0">
                 <svg viewBox="0 0 12 12" className="w-3 h-3 text-action-ink" aria-hidden>
                   <path d="M1.5 6h8M6 2.5 9.5 6 6 9.5" fill="none" stroke="currentColor"
                         strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -241,30 +224,102 @@ export function ChatMockup({ className }: { className?: string }) {
   );
 }
 
-/** The camera step, with the instruction that makes a prepared photo useless. */
-function CameraFrame() {
-  const [step, setStep] = useState(0);
+/** Consent is asked for, and what happens to the footage is said out loud. */
+function Consent() {
+  const [granted, setGranted] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setStep(1), 1100);
+    const t = setTimeout(() => setGranted(true), 1150);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div className="animate-pop rounded-xl border border-line overflow-hidden bg-surface-2">
-      <div className="relative h-24 grid place-items-center bg-[linear-gradient(135deg,#e9e9ee_25%,#f2f2f5_25%,#f2f2f5_50%,#e9e9ee_50%,#e9e9ee_75%,#f2f2f5_75%)] bg-[length:14px_14px]">
-        <div className="absolute inset-3 rounded-lg border-2 border-dashed border-accent/50" />
-        <span className="relative text-2xs text-ink-3">camera</span>
+    <div className="animate-pop rounded-2xl border border-line bg-surface-1 overflow-hidden">
+      <div className="px-3.5 py-3">
+        <div className="text-sm font-medium">Camera access</div>
+        <ul className="mt-2 flex flex-col gap-1.5 text-2xs text-ink-2 list-none p-0">
+          {["Used once, for this claim only",
+            "Nothing records until you press capture",
+            "Deleted when the case closes"].map((line) => (
+            <li key={line} className="flex gap-2">
+              <span className="text-ink-4">·</span>{line}
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="px-3 py-2.5">
+      <div className="flex gap-2 px-3.5 pb-3.5">
+        <div className={clsx(
+          "flex-1 h-8 rounded-full grid place-items-center text-2xs font-medium transition-colors duration-500",
+          granted ? "bg-surface-3 text-ink-3" : "bg-action text-action-ink")}>
+          {granted ? "Allowed" : "Allow camera"}
+        </div>
+        <div className="flex-1 h-8 rounded-full border border-line grid place-items-center text-2xs text-ink-3">
+          Send a photo instead
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The instruction is issued in the moment, which is what a saved photo cannot answer. */
+function CameraFrame() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setStep(1), 1050);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="animate-pop rounded-2xl border border-line overflow-hidden bg-surface-2">
+      <div className="relative h-28">
+        <img src={PHOTO} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute inset-3 rounded-xl border-2 border-dashed border-white/70" />
+        <span className="absolute top-2 left-2.5 flex items-center gap-1.5 text-2xs text-white/90">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-breathe" /> live
+        </span>
+      </div>
+      <div className="px-3.5 py-2.5 bg-surface-1">
         <div className="text-2xs font-bold uppercase tracking-wide text-ink-3">
           Step {step + 1} of 2
         </div>
         <div className="text-sm font-medium mt-0.5">
           {step === 0
-            ? "Point at the torn sleeve"
+            ? "Point at the torn seam"
             : "Now turn it so the price tag is in the same shot"}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Not a badge saying "approved" — the receipt a payment actually produces. */
+function Receipt() {
+  return (
+    <div className="animate-pop rounded-2xl border border-line bg-surface-1 overflow-hidden">
+      <div className="px-3.5 pt-3.5 pb-3">
+        <div className="text-2xs text-ink-3">Refund issued</div>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+          <span className="text-2xl font-bold tracking-tighter tabular">₹749</span>
+          <span className="text-2xs text-ink-3">INR</span>
+        </div>
+      </div>
+
+      <div className="border-t border-line-subtle divide-y divide-line-subtle">
+        {[["To", "HDFC ···· 4412"],
+          ["Arrives", "3–5 working days"],
+          ["Reference", "rfnd_8a21c9f0"],
+          ["Reason", "Damaged on arrival · 4.2"]].map(([k, v]) => (
+          <div key={k} className="flex justify-between px-3.5 py-2 text-2xs">
+            <span className="text-ink-3">{k}</span>
+            <span className={k === "Reference" ? "font-mono text-ink" : "text-ink"}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-3.5 py-2.5 bg-surface-2 text-2xs text-ink-3">
+        Keep the item — under ₹1,500 we don&rsquo;t ask for it back.
       </div>
     </div>
   );

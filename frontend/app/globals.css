@@ -39,21 +39,27 @@
      and "nothing happened" gets no fill at all.
      ══════════════════════════════════════════════════════════════════════ */
   :root {
-    --bg: #fbfbfc;
+    /* Warm off-white rather than a cool grey: cards read as paper against it,
+       which a blue-grey neutral never manages. */
+    --bg: #fdfcfc;
     --surface-1: #ffffff;
-    --surface-2: #f4f4f6;
-    --surface-3: #ececed;
-    --surface-4: #e2e2e5;
-    --scrim: rgba(17, 17, 20, 0.36);
+    --surface-2: #f5f3f1;   /* the card surface — cream, not grey */
+    --surface-3: #ebe8e4;
+    --surface-4: #e0dcd7;
+    --scrim: rgba(0, 0, 0, 0.36);
 
-    --border-subtle: #eeeef1;
-    --border: #e3e3e7;
-    --border-strong: #d2d2d8;
+    /* Borders are a tint of black rather than a fixed grey, so they sit
+       correctly on white and on cream without needing two values. */
+    --border-subtle: rgba(0, 0, 0, 0.05);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.16);
 
-    --text: #111114;
-    --text-2: #4e4e57;
-    --text-3: #8b8b95;
-    --text-4: #b3b3bb;
+    /* Text runs to true black at the top of the scale; the muted steps are
+       warm stones so they belong to the cream rather than fighting it. */
+    --text: #000000;
+    --text-2: #44403b;
+    --text-3: #777169;
+    --text-4: #a8a29a;
 
     /* the one accent: active, verified, live, focus */
     --accent: #4f46e5;
@@ -117,10 +123,20 @@
   /* The soft field behind hero and auth panels. Never under running text. */
   .mesh {
     background:
-      radial-gradient(52% 44% at 12% 8%, rgba(99, 102, 241, 0.16), transparent 70%),
-      radial-gradient(46% 40% at 88% 4%, rgba(168, 85, 247, 0.12), transparent 70%),
-      radial-gradient(50% 46% at 76% 88%, rgba(56, 189, 248, 0.12), transparent 70%),
-      radial-gradient(40% 38% at 24% 92%, rgba(244, 114, 182, 0.10), transparent 70%);
+      radial-gradient(52% 44% at 12% 8%, rgba(79, 70, 229, 0.10), transparent 70%),
+      radial-gradient(46% 40% at 88% 4%, rgba(168, 85, 247, 0.08), transparent 70%),
+      radial-gradient(50% 46% at 76% 88%, rgba(56, 189, 248, 0.07), transparent 70%);
+  }
+
+  /* Structure, not decoration: a faint rule grid that fades out before it
+     reaches the content, so the page has a floor without a pattern on it. */
+  .grid-field {
+    background-image:
+      linear-gradient(to right, rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(120% 80% at 50% 0%, #000 15%, transparent 75%);
+    -webkit-mask-image: radial-gradient(120% 80% at 50% 0%, #000 15%, transparent 75%);
   }
 
   /* Grain keeps a wide blur from banding on large screens. */

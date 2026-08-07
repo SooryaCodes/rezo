@@ -81,7 +81,8 @@ export default function Home() {
       <div className="relative">
       {/* the field sits behind the nav as well, so the page does not start
           with a white band above a floating pill */}
-      <div className="absolute inset-0 mesh grain pointer-events-none" aria-hidden />
+      <div className="absolute inset-0 mesh pointer-events-none" aria-hidden />
+      <div className="absolute inset-0 grid-field pointer-events-none" aria-hidden />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-bg pointer-events-none" aria-hidden />
 
       {/* ── floating pill nav ──────────────────────────────────────────── */}
@@ -214,7 +215,7 @@ export default function Home() {
 
       {/* ── for buyers: the other half of every dispute ─────────────────── */}
       <section id="buyers" className="border-t border-line-subtle scroll-mt-24 relative overflow-hidden">
-        <div className="absolute inset-0 mesh opacity-50 pointer-events-none" aria-hidden />
+        <div className="absolute inset-0 mesh opacity-60 pointer-events-none" aria-hidden />
         <div className="relative max-w-shell mx-auto px-6 py-24">
           <Reveal className="max-w-[680px] mb-12">
             <Eyebrow>The other half</Eyebrow>
@@ -527,7 +528,7 @@ export default function Home() {
 
       {/* ── close ──────────────────────────────────────────────────────── */}
       <section className="border-t border-line-subtle relative overflow-hidden">
-        <div className="absolute inset-0 mesh grain pointer-events-none" aria-hidden />
+        <div className="absolute inset-0 mesh pointer-events-none" aria-hidden />
         <div className="relative max-w-shell mx-auto px-6 py-28 text-center">
           <Reveal>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tightest max-w-[16ch] mx-auto">

@@ -3,6 +3,9 @@ const API = process.env.REZO_API_URL || "http://127.0.0.1:8000";
 
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
+  },
   async rewrites() {
     // The API and media are served by the FastAPI service. Proxying them
     // through Next keeps everything same-origin in the browser, so the widget

@@ -56,6 +56,8 @@ const config: Config = {
         sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
+      // Section rhythm reuses a short scale rather than arbitrary values.
+      spacing: { 18: "4.5rem", 30: "7.5rem", 40: "10rem" },
       fontSize: {
         // Body sits at 13.5px: an app size, not a document size.
         "2xs": ["10.5px", { lineHeight: "1.4" }],
@@ -67,8 +69,8 @@ const config: Config = {
         xl: ["21px", { lineHeight: "1.3" }],
         "2xl": ["27px", { lineHeight: "1.2" }],
         "3xl": ["34px", { lineHeight: "1.15" }],
-        "4xl": ["44px", { lineHeight: "1.08" }],
-        "5xl": ["62px", { lineHeight: "1.03" }],
+        "4xl": ["44px", { lineHeight: "1.08", letterSpacing: "-0.02em" }],
+        "5xl": ["56px", { lineHeight: "1.06", letterSpacing: "-0.022em" }],
       },
       fontWeight: {
         // Variable-font intermediates read more considered than 400/500/600/700.
@@ -100,7 +102,7 @@ const config: Config = {
       },
       transitionTimingFunction: { out: "cubic-bezier(0.16, 1, 0.3, 1)" },
       transitionDuration: { fast: "110ms", base: "180ms", slow: "280ms" },
-      maxWidth: { shell: "1120px", prose: "68ch" },
+      maxWidth: { shell: "1224px", prose: "68ch" },
     },
   },
   plugins: [],

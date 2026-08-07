@@ -246,12 +246,17 @@ function CaptureStage({ challenge, onSubmit, busy }: {
   const steps = challenge.steps ?? [];
   const [step, setStep] = useState(0);
   const [frames, setFrames] = useState<File[]>([]);
+  // Consent first. Calling getUserMedia on arrival throws a browser permission
+  // prompt at someone who has not been told why, which is both a bad experience
+  // and the fastest way to have the camera path refused forever.
+  const [consented, setConsented] = useState(false);
   const [cameraReady, setCameraReady] = useState<boolean | null>(null);
   const [left, setLeft] = useState<number>(challenge.ttl_seconds ?? 300);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
+    if (!consented) return;
     let cancelled = false;
     navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
       .then((stream) => {
@@ -265,7 +270,7 @@ function CaptureStage({ challenge, onSubmit, busy }: {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [consented]);
 
   useEffect(() => {
     if (!challenge.expires_at) return;
@@ -312,8 +317,44 @@ function CaptureStage({ challenge, onSubmit, busy }: {
 
   const mmss = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
 
+  if (!consented) {
+    return (
+      <div className="rounded-2xl border border-line bg-surface-1 overflow-hidden">
+        <div className="px-4 py-4">
+          <div className="font-medium">Can I open your camera?</div>
+          <p className="text-sm text-ink-2 mt-1">
+            Seeing the problem is what lets me settle this now instead of passing it to
+            someone tomorrow. It takes about twenty seconds.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2 list-none p-0">
+            {["Used once, for this claim only, and never opened again afterwards",
+              "Nothing is recorded until you press capture",
+              "Deleted when the case closes"].map((line) => (
+              <li key={line} className="flex gap-2.5 text-sm text-ink-2">
+                <span className="text-ink-4 mt-0.5">·</span>{line}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex gap-2 px-4 pb-4">
+          <Button variant="primary" className="flex-1" onClick={() => setConsented(true)}>
+            Allow camera
+          </Button>
+          <Button className="flex-1" disabled={busy}
+                  onClick={() => useSample("evidence_authentic.jpg", "upload")}>
+            Send a photo instead
+          </Button>
+        </div>
+        <p className="px-4 pb-4 text-xs text-ink-3">
+          A sent photo still works — it just unlocks less on its own, so a person may take
+          a look before anything is paid out.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="border border-line rounded-lg overflow-hidden bg-surface-2">
+    <div className="border border-line rounded-2xl overflow-hidden bg-surface-2">
       {cameraReady !== false && (
         <video ref={videoRef} playsInline muted autoPlay
                className="w-full aspect-[3/4] object-cover bg-black block" />

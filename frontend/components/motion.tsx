@@ -47,7 +47,7 @@ export function Reveal({
   return (
     <Tag
       ref={ref as never}
-      className={clsx("transition-[opacity,transform] duration-[520ms] ease-out", className)}
+      className={clsx("transition-[opacity,transform] duration-700 [transition-timing-function:cubic-bezier(.22,1,.36,1)]", className)}
       style={{
         opacity: hidden ? 0 : 1,
         transform: hidden ? `translateY(${y}px)` : "none",
