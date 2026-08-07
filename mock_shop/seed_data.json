@@ -1,0 +1,7 @@
+{
+  "stores": [
+    {"id": "st_rehana", "name": "Rehana's Closet", "auto_approve_cap": 800, "category": "clothing"},
+    {"id": "st_techkart", "name": "TechKart", "auto_approve_cap": 2000, "category": "electronics"}
+  ],
+  "note": "Demo orders, buyers and scenario fixtures land with the Round 2 prototype."
+}

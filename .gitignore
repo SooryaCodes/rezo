@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+node_modules/
+.next/
+dist/
+*.log
+.DS_Store
+postgres_data/
+chroma_data/
