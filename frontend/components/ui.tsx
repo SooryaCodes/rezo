@@ -14,16 +14,32 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const BUTTON_BASE =
   "inline-flex items-center justify-center gap-2 rounded font-medium leading-none " +
-  "border border-transparent whitespace-nowrap transition-[background,border-color,color,transform] " +
-  "duration-fast ease-out active:scale-[0.975] disabled:cursor-not-allowed";
+  "border border-transparent whitespace-nowrap select-none " +
+  "transition-[background,border-color,color,transform,box-shadow] " +
+  "duration-fast ease-out disabled:cursor-not-allowed disabled:translate-y-0 " +
+  "disabled:shadow-none";
 
+/**
+ * Depth comes from a lit top edge and a shadow that collapses when pressed, so
+ * a button feels like a physical surface rather than a rectangle that changes
+ * colour. It is a couple of pixels of movement; any more reads as a toy.
+ */
 const BUTTON_VARIANTS = {
-  primary: "bg-action text-action-ink hover:bg-action-hover disabled:bg-surface-2 disabled:text-ink-4",
+  primary:
+    "bg-action text-action-ink shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(24,24,27,.28),0_4px_12px_rgba(24,24,27,.16)] " +
+    "hover:bg-action-hover hover:-translate-y-[1px] " +
+    "hover:shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_2px_4px_rgba(24,24,27,.24),0_8px_20px_rgba(24,24,27,.18)] " +
+    "active:translate-y-[1px] active:shadow-[inset_0_2px_4px_rgba(0,0,0,.22)] " +
+    "disabled:bg-surface-2 disabled:text-ink-4",
   secondary:
-    "bg-surface-1 border-line text-ink hover:border-line-strong hover:bg-surface-2 " +
+    "bg-surface-1 border-line text-ink shadow-[0_1px_2px_rgba(24,24,27,.05)] " +
+    "hover:border-line-strong hover:bg-surface-2 hover:-translate-y-[1px] hover:shadow-[0_2px_6px_rgba(24,24,27,.08)] " +
+    "active:translate-y-[1px] active:shadow-none " +
     "disabled:text-ink-4 disabled:hover:bg-surface-1",
-  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink disabled:text-ink-4",
-  danger: "bg-bad-soft text-bad hover:bg-bad hover:text-white",
+  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink active:scale-[0.975] disabled:text-ink-4",
+  danger:
+    "bg-bad-soft text-bad hover:bg-bad hover:text-white hover:-translate-y-[1px] " +
+    "active:translate-y-[1px]",
 };
 
 const BUTTON_SIZES = {
