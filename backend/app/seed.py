@@ -298,7 +298,10 @@ def seed(reset: bool = False) -> dict:
             return {"seeded": False, "reason": "already populated"}
 
         if reset:
-            for model in (Precedent, Order, Buyer, PolicyPack, Store):
+            from .db.models import (AuditEntry, CaptureSession, Dispute,
+                                    Evidence, RefundLedger)
+            for model in (AuditEntry, RefundLedger, Evidence, CaptureSession,
+                          Dispute, Precedent, Order, Buyer, PolicyPack, Store):
                 db.query(model).delete()
 
         # ---------------- stores ----------------
