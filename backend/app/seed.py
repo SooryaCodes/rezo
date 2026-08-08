@@ -266,17 +266,20 @@ def seed_media() -> dict[str, str]:
         p = base / f"product_{key}.jpg"
         if not p.exists():
             _product_image(p, label, rgb)
-        paths[f"product_{key}"] = str(p)
+        # Stored relative to the media root, because this value ends up in an
+        # order row and is served as a URL. An absolute filesystem path here
+        # made every product image 404 on the storefront.
+        paths[f"product_{key}"] = f"samples/product_{key}.jpg"
 
     real = base / "evidence_authentic.jpg"
     if not real.exists():
         _authentic_photo(real, "torn sleeve")
-    paths["evidence_authentic"] = str(real)
+    paths["evidence_authentic"] = "samples/evidence_authentic.jpg"
 
     fake = base / "evidence_generated.png"
     if not fake.exists():
         _generated_image(fake, "cracked earbud")
-    paths["evidence_generated"] = str(fake)
+    paths["evidence_generated"] = "samples/evidence_generated.png"
 
     return paths
 

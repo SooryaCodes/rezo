@@ -309,7 +309,8 @@ def integration_status(store_id: str):
 
 @router.get("/platform/queue")
 def platform_queue():
-    return svc.list_disputes(status="awaiting_platform_review")
+    """The arbitration desk: cases whose seller let the approval window lapse."""
+    return svc.platform_queue()
 
 
 @router.post("/demo/reset")

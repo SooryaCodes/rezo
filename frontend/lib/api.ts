@@ -100,6 +100,9 @@ export interface DisputeRow {
   dispute_id: string; store_id: string; order_id: string; buyer_name: string;
   claim_type: string; claim_value: number; status: string; escalation_level: number;
   outcome: Outcome | null; fraud_score: number | null; created_at: string; opened_by: string;
+  // present only on the platform arbitration queue, which needs to show which
+  // store a case belongs to and how long the buyer has already waited
+  store_name?: string; sla_due_at?: string | null; hours_waiting?: number;
 }
 
 export interface Analytics {

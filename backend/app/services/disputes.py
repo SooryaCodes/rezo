@@ -177,6 +177,9 @@ def get_dispute(dispute_id: str) -> dict:
         "fraud": state.get("fraud", {}),
         "decision": state.get("decision", {}),
         "guardrail": state.get("guardrail", {}),
+        # Who signed off, when a human did. Absent on an automatic decision,
+        # which is itself the answer to "did anyone approve this".
+        "approval": state.get("approval") or None,
         "dossier": state.get("dossier", {}),
         "execution": state.get("execution", {}),
         "usage": state.get("usage", {}),
@@ -256,3 +259,47 @@ def store_analytics(store_id: str) -> dict:
         "llm_cost_inr": round(cost, 2),
         "cost_per_dispute_inr": round(cost / total, 2) if total else 0.0,
     }
+
+
+def platform_queue() -> list[dict]:
+    """Cases the platform must decide because the seller did not.
+
+    A separate projection from the seller's own list rather than a filter on
+    it: an arbitrator needs to know which store this is and how long the buyer
+    has already been waiting, neither of which a seller looking at their own
+    queue would ever need.
+    """
+    now = datetime.now(timezone.utc)
+    with session_scope() as db:
+        rows = db.scalars(
+            select(Dispute)
+            .where(Dispute.status == "awaiting_platform_review")
+            .order_by(Dispute.sla_due_at.asc().nullslast())).all()
+        stores = {s.id: s.name for s in db.scalars(select(Store)).all()}
+        buyers = {b.id: b.name for b in db.scalars(select(Buyer)).all()}
+
+        out = []
+        for r in rows:
+            state = dict(r.state or {})
+            due = r.sla_due_at
+            if due is not None and due.tzinfo is None:
+                due = due.replace(tzinfo=timezone.utc)
+            out.append({
+                "dispute_id": r.id,
+                "store_id": r.store_id,
+                "store_name": stores.get(r.store_id, r.store_id),
+                "order_id": r.order_id,
+                "buyer_name": buyers.get(r.buyer_id, ""),
+                "claim_type": r.claim_type,
+                "claim_value": r.claim_value,
+                "status": r.status,
+                "escalation_level": r.escalation_level,
+                "outcome": (state.get("decision") or {}).get("outcome"),
+                "fraud_score": (state.get("fraud") or {}).get("score"),
+                "created_at": r.created_at.isoformat(),
+                "opened_by": r.opened_by,
+                "sla_due_at": due.isoformat() if due else None,
+                "hours_waiting": round((now - r.created_at.replace(
+                    tzinfo=r.created_at.tzinfo or timezone.utc)).total_seconds() / 3600, 1),
+            })
+        return out

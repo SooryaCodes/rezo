@@ -12,6 +12,7 @@ const NAV = [
 ];
 
 const TOOLS = [
+  { key: "arbitration", label: "Arbitration", href: "/arbitration" },
   { key: "console", label: "Agent console", href: "/console" },
   { key: "store", label: "Test storefront", href: "/store" },
   { key: "docs", label: "Integration guide", href: "/docs" },

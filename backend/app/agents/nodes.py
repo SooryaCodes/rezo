@@ -651,17 +651,29 @@ def seller_gate_node(state: dict) -> dict:
     })
 
     approval = approval or {}
+
+    # Who actually answered. When a seller lets their window lapse the watchdog
+    # hands the case to platform arbitration, and the same interrupt is resumed
+    # by someone else entirely. Recording that as "the seller approved" would
+    # put a decision in the seller's name that they never saw, in the one part
+    # of the system whose whole value is being a truthful account of who
+    # decided what.
+    actor = approval.get("by") or "seller"
+    is_platform = actor.startswith("platform")
+    who = "Platform" if is_platform else "Seller"
+
     events.emit(did, "escalation", "gate",
-                f"Seller {'approved' if approval.get('approved') else 'rejected'} "
+                f"{who} {'approved' if approval.get('approved') else 'rejected'} "
                 f"the recommendation",
-                {"by": approval.get("by"), "note": approval.get("note")})
-    _audit(state, "seller", "approval_recorded", approval)
+                {"by": actor, "note": approval.get("note")})
+    _audit(state, "platform" if is_platform else "seller",
+           "approval_recorded", {**approval, "by": actor})
 
     decision = dict(state.get("decision", {}) or {})
     if approval.get("override_outcome"):
         decision["outcome"] = approval["override_outcome"]
         decision["amount"] = float(approval.get("override_amount", decision.get("amount", 0)))
-        decision["rationale"] = (f"Seller override: {approval.get('note', 'no reason given')}. "
+        decision["rationale"] = (f"{who} override: {approval.get('note', 'no reason given')}. "
                                  f"Original recommendation: {decision.get('rationale', '')}")
     elif approval.get("approved") and decision.get("outcome") == "escalate":
         # The agents stopped short of an outcome and asked. Approving here means
@@ -670,16 +682,18 @@ def seller_gate_node(state: dict) -> dict:
         decision["outcome"] = prescribed
         decision["amount"] = (float(state.get("claim_value", 0) or 0)
                               if prescribed in ("full_refund", "partial_refund") else 0.0)
-        decision["rationale"] = (f"Approved by the seller after review. "
-                                 f"{decision.get('rationale', '')}")
+        decision["rationale"] = (
+            f"Approved by {'platform arbitration, after the seller SLA lapsed'
+                          if is_platform else 'the seller, after review'}. "
+            f"{decision.get('rationale', '')}")
     elif not approval.get("approved"):
         decision["outcome"] = "reject"
         decision["amount"] = 0.0
-        decision["rationale"] = (f"Declined by the seller: "
+        decision["rationale"] = (f"Declined by {'platform arbitration' if is_platform else 'the seller'}: "
                                  f"{approval.get('note', 'no reason given')}.")
 
-    return {"approval": approval, "decision": decision, "escalation_level": 1,
-            "dossier": dossier}
+    return {"approval": {**approval, "by": actor}, "decision": decision,
+            "escalation_level": 2 if is_platform else 1, "dossier": dossier}
 
 
 def platform_gate_node(state: dict) -> dict:
@@ -801,8 +815,12 @@ def execute_node(state: dict) -> dict:
     events.emit(did, "execution", "decision", "Case closed",
                 {"steps": actions["steps"]})
     _audit(state, "execution", "case_closed", actions)
+    # The level travels in the working state but the column was last written at
+    # the gate, so a case arbitrated by the platform would close still recorded
+    # as level one: settled by the seller, which is not what happened.
     _persist({**state, "execution": actions, "status": "closed"},
-             status="closed", closed_at=datetime.now(timezone.utc))
+             status="closed", closed_at=datetime.now(timezone.utc),
+             escalation_level=int(state.get("escalation_level", 0) or 0))
     return {"execution": actions, "status": "closed", "usage": _usage_snapshot()}
 
 

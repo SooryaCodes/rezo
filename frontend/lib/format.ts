@@ -13,7 +13,10 @@ export function timeAgo(iso: string | null | undefined) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export const mediaUrl = (path: string) => `/media/${path.split("/").pop()}`;
+// Paths arrive relative to the media root ("samples/product_kurti.jpg", or a
+// bare filename for dispute evidence). Keeping the whole path matters: reducing
+// it to a basename dropped the samples/ directory and 404'd every product shot.
+export const mediaUrl = (path: string) => `/media/${String(path).replace(/^\/+/, "")}`;
 
 /** Outcome labels the customer would recognise, not our internal enum. */
 export const OUTCOME_LABEL: Record<string, string> = {
