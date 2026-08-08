@@ -320,7 +320,11 @@ function CaptureStage({ challenge, onSubmit, onPreview, busy }: {
         if (videoRef.current) videoRef.current.srcObject = stream;
         setCameraReady(true);
       })
-      .catch(() => !cancelled && setCameraReady(false));
+      .catch(() => {
+        // Denied, unavailable, or blocked by the browser. Whatever the reason,
+        // the buyer must not be left looking at a panel that never changes.
+        if (!cancelled) { setCameraReady(false); setConsented(true); }
+      });
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -452,10 +456,14 @@ function CaptureStage({ challenge, onSubmit, onPreview, busy }: {
           </Button>
         )}
         {cameraReady === false && (
-          <p className="text-sm text-ink mt-1">
-            We couldn&rsquo;t open your camera. You can still send a photo, but an uploaded file
-            unlocks less and may be reviewed by a person.
-          </p>
+          <div className="mt-1 rounded-lg border border-line-strong bg-surface-1 p-3">
+            <p className="text-sm font-medium text-ink">Your camera didn&rsquo;t open</p>
+            <p className="mt-1 text-sm text-ink-2">
+              Your browser blocked it, or another app is using it. Send a photo instead:
+              it still works, it just unlocks less on its own, so a person may look
+              before anything is paid out.
+            </p>
+          </div>
         )}
 
         <div className="mt-1 flex gap-2">

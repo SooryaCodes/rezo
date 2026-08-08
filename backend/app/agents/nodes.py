@@ -249,6 +249,22 @@ def evidence_node(state: dict) -> dict:
                     "This exact image was already submitted on another dispute",
                     {"matches": reused})
 
+    # The listing photo, handed back as proof. Nothing in provenance forensics
+    # objects to it and a vision model confirms it shows the right item, which
+    # is precisely why it has to be caught here instead.
+    catalogue_hit = None
+    for a in analyses:
+        catalogue_hit = shop.matches_catalogue_image(
+            state["store_id"], a.get("perceptual_hash", ""))
+        if catalogue_hit:
+            break
+    if catalogue_hit:
+        flags.append("store_catalogue_image")
+        events.emit(did, "evidence", "finding",
+                    "This is the store's own listing photograph, not a photo of "
+                    "the item as it arrived",
+                    {"matched": catalogue_hit.get("title", "")})
+
     if flags:
         events.emit(did, "evidence", "finding", f"Forensics: {summary}",
                     {"flags": flags})
@@ -293,6 +309,11 @@ def evidence_node(state: dict) -> dict:
     content_match = result.get("content_match")
     confidence = float(result.get("confidence", 0) or 0)
     verified = bool(result.get("verified"))
+    if catalogue_hit:
+        # No judgement call here. Whatever the model concluded, a photograph the
+        # store published itself cannot evidence the condition of a parcel.
+        confidence = 0.0
+        verified = False
     if content_match is False:
         confidence = min(confidence, 0.2)
         verified = False

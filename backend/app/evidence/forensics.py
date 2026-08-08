@@ -47,6 +47,18 @@ def perceptual_hash(path: str | Path) -> str:
     return f"{int(bits, 2):016x}"
 
 
+def hamming(a: str, b: str) -> int:
+    """Distance between two average hashes. Zero is the same picture; a handful
+    of bits is the same picture after a screenshot and a re-encode; anything
+    much larger is a different picture."""
+    if not a or not b or len(a) != len(b):
+        return 64
+    try:
+        return bin(int(a, 16) ^ int(b, 16)).count("1")
+    except ValueError:
+        return 64
+
+
 def analyse(path: str | Path) -> dict:
     """Returns the signals, the flags they raise, and hashes for cross-store
     correlation."""

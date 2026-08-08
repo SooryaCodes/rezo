@@ -362,3 +362,36 @@ def payout_link(store_id: str, buyer_id: str, amount: float) -> dict:
 
 def notify(store_id: str, recipient: str, channel: str, message: str) -> dict:
     return connector_for(store_id).notify(recipient, channel, message)
+
+
+def matches_catalogue_image(store_id: str, phash: str) -> dict | None:
+    """Is this the store's own product photograph, handed back as evidence?
+
+    The easiest attack on a system that accepts photographs is not a generated
+    image at all: it is right-clicking the listing photo and uploading that. It
+    is a real photograph of the real product with no generator markers, so
+    provenance forensics has nothing to object to, and a vision model will
+    confirm it shows exactly the item that was ordered.
+
+    Perceptual, not exact: the buyer's copy has been through a screenshot, a
+    resize and a re-encode, so the bytes differ while the picture does not.
+    """
+    if not phash:
+        return None
+
+    from ..evidence.forensics import hamming, perceptual_hash
+
+    with session_scope() as db:
+        orders = db.scalars(select(Order).where(Order.store_id == store_id)).all()
+        catalogue = {(item.get("image") or "", item.get("title") or "")
+                     for o in orders for item in (o.items or [])}
+
+    for image, title in catalogue:
+        if not image:
+            continue
+        path = settings.media_dir / image
+        if not path.exists():
+            continue
+        if hamming(perceptual_hash(path), phash) <= 6:
+            return {"image": image, "title": title}
+    return None

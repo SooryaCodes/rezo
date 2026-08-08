@@ -62,9 +62,16 @@ export default function StorePage() {
   // like it is coming apart under the panel.
   useEffect(() => {
     if (!widget && !picker) return;
-    const prev = document.body.style.overflow;
+    // Both elements: which one owns the scroll varies by browser, and locking
+    // only body let the page keep moving underneath the panel.
+    const body = document.body.style.overflow;
+    const root = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = body;
+      document.documentElement.style.overflow = root;
+    };
   }, [widget, picker]);
 
   // Each seeded order exists to exercise one behaviour. Saying so turns a list

@@ -249,8 +249,12 @@ def _product_image(path, label: str, rgb: tuple[int, int, int],
 # The joggers from DEMO-101, so the photograph shows the ordered garment. A
 # tear is drawn onto it, because a pristine catalogue shot is correctly refused
 # as evidence of damage: it proves the product exists, not that it arrived torn.
+# Deliberately NOT one of the catalogue photographs. A buyer's own picture of
+# the garment they received is a different photograph of the same kind of item,
+# which is exactly what the evidence checks are built to tell apart from the
+# listing shot.
 AUTHENTIC_PHOTO = ("https://images.unsplash.com/"
-                   "photo-1594633312681-425c7b97ccd1?w=900&q=80")
+                   "photo-1489987707025-afc232f7ea0f?w=900&q=80")
 
 
 def _authentic_photo(path, label: str) -> None:
@@ -680,6 +684,12 @@ def seed_sample_orders(store_id: str) -> int:
              "product_earbuds", "SN-TK-77401932", True, 20),
             ("DEMO-104", "by_demo_kiran", "Ceramic Table Lamp", "Sand", 1899.0,
              "product_lamp", "LMP-SND-1", False, 0),
+            # Under the cap and undelivered, so the courier trail is the whole
+            # evidence and no photograph is involved. The one beat that resolves
+            # itself every time, because nothing about it depends on what a
+            # camera happened to see.
+            ("DEMO-105", "by_demo_asha", "Cotton Floor Cushion", "Rust", 890.0,
+             "product_cushion", "CSH-RST-2", False, 0),
         ]
         for oid, bid, title, variant, price, img, serial, delivered, hours in specs:
             placed = now - timedelta(days=6 if delivered else 21)
