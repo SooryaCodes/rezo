@@ -279,6 +279,14 @@ def _authentic_photo(path, label: str) -> None:
         d.text((330, 1000), "TAG SKU KRT-RST-M", fill=(20, 20, 20))
         d.text((110, 240), label, fill=(255, 255, 255))
 
+    # A close-up, which is what someone photographing a fault actually takes and
+    # what keeps this from colliding with the listing shot: the catalogue check
+    # is perceptual, and a crop of the damaged area is a different picture of
+    # the same garment rather than the same picture.
+    w0, h0 = img.size
+    img = img.crop((int(w0 * 0.18), int(h0 * 0.34), int(w0 * 0.82), int(h0 * 0.86)))
+    img = img.rotate(-4, expand=False, fillcolor=(236, 232, 230)).resize((900, 1150))
+
     # The damage itself. Drawn over a real garment rather than over a coloured
     # rectangle, so what the agent sees is a torn seam on the item that was
     # ordered instead of an abstraction standing in for one.
