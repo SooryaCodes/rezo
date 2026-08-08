@@ -211,6 +211,8 @@ export const api = {
   // ── platform ──────────────────────────────────────────────────────────
   watchdog: () => post<any>("/watchdog/run"),
   platformQueue: () => request<DisputeRow[]>("/platform/queue"),
+  addSampleOrders: (storeId: string) =>
+    request<{ created: number }>(`/stores/${storeId}/sample-orders`, { method: "POST" }),
   resetDemo: () => post<any>("/demo/reset"),
 };
 

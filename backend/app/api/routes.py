@@ -346,6 +346,18 @@ def _reset_external_merchants() -> None:
             pass
 
 
+@router.post("/stores/{store_id}/sample-orders")
+async def add_sample_orders(store_id: str):
+    """Put a handful of orders in this merchant's own store.
+
+    Without them a new account's first dispute lands on a demo store and their
+    own dashboard stays empty, which reads as the product not working.
+    """
+    from ..seed import seed_sample_orders
+    created = await run_in_threadpool(seed_sample_orders, store_id)
+    return {"created": created}
+
+
 @router.post("/demo/reset")
 async def reset_demo():
     """Return the environment to its seeded state.

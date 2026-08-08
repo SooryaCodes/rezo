@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api, type Order, type Store } from "@/lib/api";
+import { useAuth } from "@/lib/useAuth";
 import { mediaUrl, rupees, timeAgo, titleCase } from "@/lib/format";
 import { Badge, Brand, Button, Eyebrow, EmptyState, Select, Skeleton } from "@/components/ui";
 
@@ -16,13 +17,25 @@ export default function StorePage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [storeId, setStoreId] = useState("st_rehana");
+  const { session } = useAuth();
   const [buyerId, setBuyerId] = useState("");
   const [widget, setWidget] = useState<{ store: string; order: string } | null>(null);
 
+  // Your own store first. Filing a dispute against a demo store and then finding
+  // your dashboard empty is the single most confusing thing a new account can do.
   useEffect(() => {
-    api.stores().then(setStores).catch(() => setStores([]));
-    api.orders().then(setOrders).catch(() => setOrders([]));
-  }, []);
+    const mine = session?.store?.id;
+    const load = () => Promise.all([
+      api.stores().then(setStores).catch(() => setStores([])),
+      api.orders().then(setOrders).catch(() => setOrders([])),
+    ]);
+    if (mine) {
+      setStoreId(mine);
+      api.addSampleOrders(mine).catch(() => {}).then(load);
+    } else {
+      load();
+    }
+  }, [session?.store?.id]);
 
   const buyers = useMemo(() => {
     const seen = new Map<string, string>();
@@ -67,12 +80,33 @@ export default function StorePage() {
                                    .map((s) => ({ value: s.id, label: s.name }))} />
           </div>
           <div className="flex items-center gap-2">
+            <a href="/dashboard?tab=disputes"
+               className="text-sm text-ink-2 hover:text-ink whitespace-nowrap">
+              &larr; Dashboard
+            </a>
             <Select value={buyerId} onChange={setBuyerId} className="w-[185px]"
                     options={[{ value: "", label: "All customers" },
                               ...buyers.map(([id, name]) => ({ value: id, label: name }))]} />
           </div>
         </div>
       </nav>
+
+      {/* One launcher for the whole store, the way a real storefront carries it.
+          Opening it without an order picks the most recent one, because that is
+          almost always the one someone is writing in about. */}
+      {!widget && visible.length > 0 && (
+        <button
+          onClick={() => setWidget({ store: storeId, order: visible[0].order_id })}
+          className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center
+                     rounded-full bg-action text-action-ink shadow-lg
+                     transition-transform hover:scale-105"
+          aria-label="Chat about an order">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z"
+                  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
 
       <div className="max-w-[760px] mx-auto px-6 py-8 pb-24">
         <header className="mb-6">

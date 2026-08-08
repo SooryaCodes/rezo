@@ -18,7 +18,7 @@ const AGENT_LABEL: Record<string, string> = {
   execution: "Processing",
 };
 
-type Message = { role: "buyer" | "agent"; content: string };
+type Message = { role: "buyer" | "agent"; content: string; image?: string };
 type Progress = { agent: string; label: string; done: boolean };
 
 function WidgetInner() {
@@ -195,14 +195,32 @@ function WidgetInner() {
         {!order && <><Skeleton className="w-[70%]" /><Skeleton className="w-[45%]" /></>}
 
         {messages.map((m, i) => (
-          <div key={i} className={
-            m.role === "buyer"
-              ? "self-end max-w-[86%] px-3 py-2 rounded-lg rounded-br-sm bg-action text-action-ink text-base whitespace-pre-wrap"
-              : "self-start max-w-[86%] px-3 py-2 rounded-lg rounded-bl-sm bg-surface-2 text-base whitespace-pre-wrap"
-          }>
-            {m.content}
-          </div>
+          m.image ? (
+            <img key={i} src={m.image} alt="Photo you sent"
+                 className="self-end max-w-[62%] rounded-lg rounded-br-sm border border-line-subtle" />
+          ) : (
+            <div key={i} className={
+              m.role === "buyer"
+                ? "self-end max-w-[86%] px-3 py-2 rounded-lg rounded-br-sm bg-action text-action-ink text-base whitespace-pre-wrap"
+                : "self-start max-w-[86%] px-3 py-2 rounded-lg rounded-bl-sm bg-surface-2 text-base whitespace-pre-wrap"
+            }>
+              {m.content}
+            </div>
+          )
         ))}
+
+        {/* Something has to move while eight agents think, or a working system
+            reads as a hung one. */}
+        {busy && (
+          <div className="self-start flex items-center gap-1.5 px-3 py-2.5 rounded-lg
+                          rounded-bl-sm bg-surface-2">
+            {[0, 1, 2].map((n) => (
+              <span key={n}
+                    className="h-1.5 w-1.5 rounded-full bg-ink-3 animate-bounce"
+                    style={{ animationDelay: `${n * 140}ms`, animationDuration: "900ms" }} />
+            ))}
+          </div>
+        )}
 
         {progress.length > 0 && (
           <div className="border border-line-subtle rounded-md overflow-hidden divide-y divide-line-subtle">
@@ -210,17 +228,22 @@ function WidgetInner() {
               <div key={p.agent}
                    className={`flex items-center gap-2 px-3 py-2 text-sm ${
                      p.done ? "bg-surface-1" : "bg-accent-soft"}`}>
-                <span className={`w-3.5 text-center ${p.done ? "text-accent" : "text-accent"}`}>
-                  {p.done ? "✓" : "●"}
+                <span className="w-3.5 text-center text-accent">
+                  {p.done ? "✓" : (
+                    <span className="inline-block h-2 w-2 rounded-full bg-accent animate-pulse" />
+                  )}
                 </span>
-                <span className="flex-1">{p.label}</span>
+                <span className={`flex-1 ${p.done ? "" : "text-ink-2"}`}>{p.label}</span>
+                {!p.done && <span className="text-xs text-ink-3">working</span>}
               </div>
             ))}
           </div>
         )}
 
         {awaitingEvidence && challenge?.steps && (
-          <CaptureStage challenge={challenge} onSubmit={submitEvidence} busy={busy} />
+          <CaptureStage challenge={challenge} onSubmit={submitEvidence} busy={busy}
+                        onPreview={(url) => setMessages((m) => [...m, {
+                          role: "buyer", content: "", image: url }])} />
         )}
 
         {dispute?.status === "closed" && <Decision dispute={dispute} />}
@@ -265,9 +288,10 @@ function WidgetInner() {
 
 /* ── live capture ────────────────────────────────────────────────────────── */
 
-function CaptureStage({ challenge, onSubmit, busy }: {
+function CaptureStage({ challenge, onSubmit, onPreview, busy }: {
   challenge: NonNullable<Dispute["capture"]>;
   onSubmit: (form: FormData) => void;
+  onPreview: (url: string) => void;
   busy: boolean;
 }) {
   // A challenge with no steps would render a camera and no instruction, which
@@ -324,6 +348,7 @@ function CaptureStage({ challenge, onSubmit, busy }: {
       const file = new File([blob], `frame_${step + 1}.jpg`, { type: "image/jpeg" });
       const next = [...frames, file];
       setFrames(next);
+      onPreview(URL.createObjectURL(file));
       if (step + 1 >= steps.length) {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         const form = new FormData();
@@ -342,6 +367,7 @@ function CaptureStage({ challenge, onSubmit, busy }: {
    *  roll, so it unlocks less and is more likely to be read by a person. */
   const uploadFile = (file: File | undefined) => {
     if (!file) return;
+    onPreview(URL.createObjectURL(file));
     streamRef.current?.getTracks().forEach((t) => t.stop());
     const form = new FormData();
     form.append("files", file, file.name);

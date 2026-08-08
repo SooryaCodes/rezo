@@ -16,6 +16,8 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
+
 from PIL import Image, ImageDraw
 from PIL.PngImagePlugin import PngInfo
 
@@ -572,3 +574,61 @@ def seed(reset: bool = False) -> dict:
 if __name__ == "__main__":
     import json
     print(json.dumps(seed(reset=True), indent=2, default=str))
+
+
+def seed_sample_orders(store_id: str) -> int:
+    """Give a real merchant's own workspace something to try Rezo against.
+
+    A new account signs up, opens the test storefront, and files a dispute
+    against Rehana's Closet, because that is where the sample orders live. Their
+    own dashboard then stays empty and the product looks broken. These orders
+    belong to *their* store, so everything they do shows up where they expect it.
+    """
+    media = seed_media()
+    now = datetime.now(timezone.utc)
+
+    with session_scope() as db:
+        if db.scalar(select(Order).where(Order.store_id == store_id)) is not None:
+            return 0
+
+        buyers = [
+            ("by_demo_asha", "Asha Menon", "en", 6, now - timedelta(days=500)),
+            ("by_demo_kiran", "Kiran Das", "en", 1, now - timedelta(days=12)),
+        ]
+        for bid, name, lang, orders_count, created in buyers:
+            if db.get(Buyer, bid) is None:
+                db.add(Buyer(id=bid, name=name, language=lang, created_at=created,
+                             address_hash=hashlib.sha256(bid.encode()).hexdigest()[:16],
+                             device_fingerprint=f"dev_{bid[-6:]}"))
+
+        specs = [
+            ("DEMO-101", "by_demo_asha", "Cotton Kurti Set", "Rust / M", 749.0,
+             "product_kurti", "KRT-RST-M", True, 6),
+            ("DEMO-102", "by_demo_asha", "Handloom Silk Saree", "Deep Plum", 4200.0,
+             "product_saree", "SAR-SLK-01", True, 30),
+            ("DEMO-103", "by_demo_kiran", "Wireless Earbuds Pro", "Charcoal", 1499.0,
+             "product_earbuds", "SN-TK-77401932", True, 20),
+            ("DEMO-104", "by_demo_kiran", "Ceramic Table Lamp", "Sand", 1899.0,
+             "product_lamp", "LMP-SND-1", False, 0),
+        ]
+        for oid, bid, title, variant, price, img, serial, delivered, hours in specs:
+            placed = now - timedelta(days=6 if delivered else 21)
+            events = [{"at": (placed + timedelta(days=1)).isoformat(),
+                       "status": "dispatched"}]
+            if delivered:
+                events.append({"at": (now - timedelta(hours=hours)).isoformat(),
+                               "status": "delivered"})
+            else:
+                events.append({"at": (now - timedelta(days=18)).isoformat(),
+                               "status": "undelivered", "note": "address unreachable"})
+            db.add(Order(
+                id=oid, store_id=store_id, buyer_id=bid,
+                items=[{"sku": serial, "title": title, "variant": variant, "qty": 1,
+                        "price": price, "image": media[img], "serial": serial}],
+                total=price, payment_method="prepaid", payment_ref=f"pay_{oid}",
+                status="delivered" if delivered else "in_transit",
+                placed_at=placed,
+                delivered_at=now - timedelta(hours=hours) if delivered else None,
+                courier="Delhivery", tracking_id=f"DL{oid[-3:]}8865010",
+                shipment_events=events))
+        return len(specs)
