@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 from PIL.PngImagePlugin import PngInfo
 
 from .config import settings
-from .db.models import Buyer, Order, PolicyPack, Precedent, Store
+from .db.models import Buyer, Dispute, Order, PolicyPack, Precedent, Store
 from .db.session import init_db, session_scope
 
 
@@ -589,7 +589,23 @@ def seed_sample_orders(store_id: str) -> int:
 
     with session_scope() as db:
         if db.scalar(select(Order).where(Order.store_id == store_id)) is not None:
+            # Already seeded. Clear the disputes a previous demo run left behind:
+            # each one counts as a recent claim against the same buyer, so by the
+            # fourth run an honest demo customer scores as a repeat claimer and
+            # the first thing anyone sees is an escalation.
+            for row in db.scalars(select(Dispute).where(
+                    Dispute.store_id == store_id,
+                    Dispute.buyer_id.like("by_demo_%"))).all():
+                db.delete(row)
             return 0
+
+        # A ₹500 cap sends even the ₹749 kurti to a human, so the very first
+        # thing a new merchant tries answers "being reviewed" rather than
+        # showing what the product actually does. Lift the default once, and
+        # only if they have not set their own.
+        store = db.get(Store, store_id)
+        if store is not None and store.auto_approve_cap <= 500.0:
+            store.auto_approve_cap = 1000.0
 
         buyers = [
             ("by_demo_asha", "Asha Menon", "en", 6, now - timedelta(days=500)),
@@ -600,6 +616,30 @@ def seed_sample_orders(store_id: str) -> int:
                 db.add(Buyer(id=bid, name=name, language=lang, created_at=created,
                              address_hash=hashlib.sha256(bid.encode()).hexdigest()[:16],
                              device_fingerprint=f"dev_{bid[-6:]}"))
+
+        # Past orders, no claims. Without a purchase history the ratio of a
+        # single claim to lifetime spend reads as extreme, and an honest
+        # customer scores as a risk on their first ever dispute.
+        for n, (bid, title, price, img, days) in enumerate([
+            ("by_demo_asha", "Linen Shirt", 1299.0, "product_kurti", 210),
+            ("by_demo_asha", "Chanderi Dupatta", 899.0, "product_saree", 160),
+            ("by_demo_asha", "Cotton Floor Cushion", 1150.0, "product_cushion", 120),
+            ("by_demo_asha", "Ceramic Table Lamp", 1899.0, "product_lamp", 80),
+            ("by_demo_asha", "Wireless Earbuds", 1499.0, "product_earbuds", 45),
+            ("by_demo_kiran", "Cotton Kurti Set", 749.0, "product_kurti", 30),
+        ]):
+            placed = now - timedelta(days=days)
+            db.add(Order(
+                id=f"HIST-{n + 1:03d}", store_id=store_id, buyer_id=bid,
+                items=[{"sku": f"HST-{n + 1}", "title": title, "variant": "Standard",
+                        "qty": 1, "price": price, "image": media[img],
+                        "serial": f"HST-{n + 1}"}],
+                total=price, payment_method="prepaid", payment_ref=f"pay_hist_{n + 1}",
+                status="delivered", placed_at=placed,
+                delivered_at=placed + timedelta(days=3),
+                courier="Delhivery", tracking_id=f"DLH{n + 1}8865010",
+                shipment_events=[{"at": (placed + timedelta(days=3)).isoformat(),
+                                  "status": "delivered"}]))
 
         specs = [
             ("DEMO-101", "by_demo_asha", "Cotton Kurti Set", "Rust / M", 749.0,

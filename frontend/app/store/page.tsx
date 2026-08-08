@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { api, type Order, type Store } from "@/lib/api";
+import { api, type DisputeRow, type Order, type Store } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import { mediaUrl, rupees, timeAgo, titleCase } from "@/lib/format";
 import { Badge, Brand, Button, Eyebrow, EmptyState, Select, Skeleton } from "@/components/ui";
@@ -20,6 +20,8 @@ export default function StorePage() {
   const { session } = useAuth();
   const [buyerId, setBuyerId] = useState("");
   const [widget, setWidget] = useState<{ store: string; order: string } | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [cases, setCases] = useState<DisputeRow[]>([]);
 
   // Your own store first. Filing a dispute against a demo store and then finding
   // your dashboard empty is the single most confusing thing a new account can do.
@@ -55,6 +57,15 @@ export default function StorePage() {
     (o) => o.store_id === storeId && (!buyerId || o.buyer_id === buyerId));
 
   const storeName = stores.find((s) => s.id === storeId)?.name ?? "Store";
+
+  // Scrolling the storefront behind an open conversation makes the page feel
+  // like it is coming apart under the panel.
+  useEffect(() => {
+    if (!widget && !picker) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [widget, picker]);
 
   // Each seeded order exists to exercise one behaviour. Saying so turns a list
   // of products into a list of things you can actually try.
@@ -96,7 +107,10 @@ export default function StorePage() {
           almost always the one someone is writing in about. */}
       {!widget && visible.length > 0 && (
         <button
-          onClick={() => setWidget({ store: storeId, order: visible[0].order_id })}
+          onClick={() => {
+            api.disputes({ store_id: storeId }).then(setCases).catch(() => setCases([]));
+            setPicker(true);
+          }}
           className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center
                      rounded-full bg-action text-action-ink shadow-lg
                      transition-transform hover:scale-105"
@@ -193,6 +207,77 @@ export default function StorePage() {
       </div>
 
       {/* the widget, embedded the way a merchant would embed it */}
+      {/* What a buyer opening a support widget actually needs: the cases they
+          already have, and a way to start a new one against a specific order.
+          Dropping them into the newest order's thread answers a question they
+          did not ask. */}
+      {picker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--scrim)] sm:items-center"
+             onClick={(e) => { if (e.target === e.currentTarget) setPicker(false); }}>
+          <div className="w-full max-w-[440px] max-h-[80vh] overflow-y-auto rounded-t-2xl
+                          border border-line-subtle bg-surface-1 p-5 shadow-3 sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">Help with an order</h2>
+                <p className="text-sm text-ink-3 mt-0.5">Pick the one you want to talk about.</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setPicker(false)}>Close</Button>
+            </div>
+
+            {cases.length > 0 && (
+              <div className="mt-4">
+                <div className="text-2xs font-bold uppercase tracking-wide text-ink-3">
+                  Your open cases
+                </div>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {cases.slice(0, 4).map((c) => (
+                    <button key={c.dispute_id}
+                            onClick={() => { setPicker(false);
+                                             setWidget({ store: storeId, order: c.order_id }); }}
+                            className="flex items-center justify-between gap-3 rounded-lg border
+                                       border-line-subtle px-3 py-2 text-left hover:bg-surface-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">{c.order_id}</span>
+                        <span className="block text-xs text-ink-3">
+                          {titleCase(c.claim_type)} &middot; {titleCase(c.status)}
+                        </span>
+                      </span>
+                      <Badge tone={c.status === "closed" ? "neutral" : "accent"}>
+                        {c.status === "closed" ? "Resolved" : "Open"}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <div className="text-2xs font-bold uppercase tracking-wide text-ink-3">
+                Start a new one
+              </div>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {visible.map((o) => (
+                  <button key={o.order_id}
+                          onClick={() => { setPicker(false);
+                                           setWidget({ store: o.store_id, order: o.order_id }); }}
+                          className="flex items-center gap-3 rounded-lg border border-line-subtle
+                                     px-3 py-2 text-left hover:bg-surface-2">
+                    <img src={mediaUrl(o.items[0]?.image ?? "")} alt=""
+                         className="h-9 w-9 shrink-0 rounded object-cover border border-line-subtle" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{o.items[0]?.title}</span>
+                      <span className="block text-xs text-ink-3">
+                        {o.order_id} &middot; {rupees(o.total)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {widget && (
         <div className="fixed inset-0 z-50 flex justify-end bg-[var(--scrim)] animate-rise"
              onClick={(e) => { if (e.target === e.currentTarget) setWidget(null); }}>
