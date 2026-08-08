@@ -457,6 +457,11 @@ def seed(reset: bool = False) -> dict:
             ),
         ]
         db.add_all(stores)
+        # Parents before children, explicitly. SQLAlchemy flushes these tables
+        # in alphabetical order, so orders would otherwise be inserted before
+        # the stores they reference. SQLite does not enforce foreign keys by
+        # default and lets that pass; Postgres rejects it and startup dies.
+        db.flush()
 
         # ---------------- policy packs ----------------
         db.add_all([
@@ -489,6 +494,7 @@ def seed(reset: bool = False) -> dict:
                   device_fingerprint="dev_c410", address_hash="addr_kochi_09",
                   created_at=now - timedelta(days=430)),
         ])
+        db.flush()
 
         # ---------------- orders ----------------
         def order(**kw) -> Order:
