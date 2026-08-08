@@ -3,6 +3,9 @@
 End to end: this repo to `rezo.zevora.io`, with the agent graph on Postgres,
 Anthropic as the live model provider, and evidence media surviving redeploys.
 
+**Live:** https://rezo.zevora.io — backend `backend-production-c949.up.railway.app`,
+mock_shop `mock-shop-production.up.railway.app`, project `rezo` (`790c72e0`).
+
 ## Topology
 
 One Railway project, four services plus a database, all from this GitHub repo:
@@ -230,6 +233,20 @@ sees a failure for a request that actually succeeded.
 
 **Media 404s after redeploy** means the volume is missing or mounted at the
 wrong path.
+
+**Postgres enforces foreign keys; SQLite does not.** `seed()` used to insert
+orders before the stores they reference — SQLAlchemy flushes these tables
+alphabetically (`buyers, orders, policy_packs, precedents, stores`), and SQLite
+lets the violation through because foreign keys are off by default there. On
+Postgres it raised, `lifespan` died, and the symptom was a 502 with a SUCCESS
+deploy and no application error at the edge. Fixed with explicit `db.flush()`
+calls after stores and buyers. If you add seed data that references a new
+parent table, flush the parent first.
+
+**Don't point the frontend healthcheck at `/health`.** That path is rewritten
+to the backend, so the frontend could only report itself healthy when the
+backend was already up — one liveness signal for two services, and a backend
+outage took the frontend's deploy down with it. It now checks `/`.
 
 **Raising the model tier needs a `max_tokens` bump.** `_anthropic` hardcodes
 `max_tokens: 1500` and sends no `thinking` field. On the Claude 4.5 models that
