@@ -273,6 +273,7 @@ def evidence_node(state: dict) -> dict:
               "\nForensic signals computed in code: " + json.dumps(analyses, default=str)),
         images=media[:3],
         schema={"verified": "boolean", "confidence": "number",
+                "content_match": "boolean|null", "observed": "string",
                 "damage_type": "string|null", "serial_match": "boolean|null",
                 "challenge_satisfied": "boolean|null", "notes": "string"},
         context={"forensics": {"flags": flags,
@@ -286,11 +287,28 @@ def evidence_node(state: dict) -> dict:
     if nonce and tier == "attested_live":
         capture_mod.consume_session(nonce)
 
+    # Enforced in code rather than trusted to the model. An image that does not
+    # show the thing being claimed cannot verify the claim, and a clean forensic
+    # report on the wrong photograph must never be allowed to stand in for one.
+    content_match = result.get("content_match")
+    confidence = float(result.get("confidence", 0) or 0)
+    verified = bool(result.get("verified"))
+    if content_match is False:
+        confidence = min(confidence, 0.2)
+        verified = False
+        if "content_mismatch" not in flags:
+            flags.append("content_mismatch")
+        events.emit(did, "evidence", "finding",
+                    "The photograph does not show the item being claimed",
+                    {"observed": result.get("observed", "")[:200]})
+
     report = {
         "tier": tier,
-        "verified": bool(result.get("verified")),
-        "confidence": float(result.get("confidence", 0) or 0),
-        "damage_type": result.get("damage_type"),
+        "verified": verified,
+        "confidence": round(confidence, 2),
+        "content_match": content_match,
+        "observed": result.get("observed", ""),
+        "damage_type": result.get("damage_type") if verified else None,
         "serial_match": result.get("serial_match"),
         "challenge_satisfied": result.get("challenge_satisfied", challenge_satisfied),
         "forensics_flags": flags,

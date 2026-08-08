@@ -213,8 +213,8 @@ CLOTHING_CLAUSES_V1 = [
 # square with the product name written on it reads as a placeholder, and a demo
 # that looks unfinished gets judged as unfinished.
 PRODUCT_PHOTOS = {
-    "kurti": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80",
-    "saree": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=600&q=80",
+    "kurti": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=600&q=80",
+    "saree": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80",
     "earbuds": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80",
     "cushion": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80",
     "lamp": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80",
@@ -242,15 +242,50 @@ def _product_image(path, label: str, rgb: tuple[int, int, int],
     img.save(path, "JPEG", quality=88)
 
 
+# A real photograph of the ordered garment. It has to be one, because the
+# Evidence Agent now genuinely looks: a drawn rectangle with the words "torn
+# sleeve" written across it is correctly rejected as not showing the product,
+# which is right of the agent and useless as a sample.
+# The joggers from DEMO-101, so the photograph shows the ordered garment. A
+# tear is drawn onto it, because a pristine catalogue shot is correctly refused
+# as evidence of damage: it proves the product exists, not that it arrived torn.
+AUTHENTIC_PHOTO = ("https://images.unsplash.com/"
+                   "photo-1594633312681-425c7b97ccd1?w=900&q=80")
+
+
 def _authentic_photo(path, label: str) -> None:
     """A photo that looks like it came off a phone: JPEG with camera EXIF."""
-    img = Image.new("RGB", (900, 1200), (188, 176, 168))
+    img = None
+    try:
+        import io
+
+        import httpx
+        data = httpx.get(AUTHENTIC_PHOTO, timeout=12.0, follow_redirects=True).content
+        if len(data) > 2000:
+            img = Image.open(io.BytesIO(data)).convert("RGB")
+    except Exception:
+        img = None
+
+    if img is None:
+        img = Image.new("RGB", (900, 1200), (188, 176, 168))
+        d = ImageDraw.Draw(img)
+        d.rectangle([90, 200, 810, 900], fill=(142, 88, 74))
+        d.line([(200, 340), (520, 620)], fill=(60, 40, 34), width=14)
+        d.rectangle([300, 950, 640, 1080], fill=(250, 250, 250))
+        d.text((330, 1000), "TAG SKU KRT-RST-M", fill=(20, 20, 20))
+        d.text((110, 240), label, fill=(255, 255, 255))
+
+    # The damage itself. Drawn over a real garment rather than over a coloured
+    # rectangle, so what the agent sees is a torn seam on the item that was
+    # ordered instead of an abstraction standing in for one.
+    w, h = img.size
     d = ImageDraw.Draw(img)
-    d.rectangle([90, 200, 810, 900], fill=(142, 88, 74))
-    d.line([(200, 340), (520, 620)], fill=(60, 40, 34), width=14)  # the "tear"
-    d.rectangle([300, 950, 640, 1080], fill=(250, 250, 250))
-    d.text((330, 1000), "TAG SKU KRT-RST-M", fill=(20, 20, 20))
-    d.text((110, 240), label, fill=(255, 255, 255))
+    d.line([(w * 0.34, h * 0.46), (w * 0.44, h * 0.61)], fill=(28, 22, 24), width=max(5, w // 120))
+    d.line([(w * 0.44, h * 0.61), (w * 0.39, h * 0.70)], fill=(28, 22, 24), width=max(4, w // 150))
+    for dx, dy in ((-0.012, 0.01), (0.014, -0.008), (-0.008, -0.014)):
+        d.line([(w * (0.38 + dx), h * (0.53 + dy)), (w * 0.39, h * 0.55)],
+               fill=(52, 40, 42), width=max(2, w // 300))
+
     exif = img.getexif()
     exif[271] = "samsung"                      # Make
     exif[272] = "SM-S928B"                     # Model
@@ -283,7 +318,7 @@ def seed_media() -> dict[str, str]:
     paths = {}
 
     products = [
-        ("kurti", "Cotton Kurti Set", (168, 92, 66)),
+        ("kurti", "Dusty Rose Joggers", (168, 92, 66)),
         ("saree", "Handloom Silk Saree", (92, 62, 110)),
         ("earbuds", "Wireless Earbuds", (44, 48, 58)),
         ("cushion", "Floor Cushion", (150, 96, 74)),
@@ -450,8 +485,8 @@ def seed(reset: bool = False) -> dict:
         orders = [
             # --- scenario 1: happy path, under cap, trusted buyer -----------
             order(id="ORD-2041", store_id="st_rehana", buyer_id="by_arjun",
-                  items=[{"sku": "KRT-RST-M", "title": "Cotton Kurti Set",
-                          "variant": "Rust / M", "qty": 1, "price": 749.0,
+                  items=[{"sku": "KRT-RST-M", "title": "Dusty Rose Joggers",
+                          "variant": "Rose / M", "qty": 1, "price": 749.0,
                           "image": media["product_kurti"], "serial": "KRT-RST-M"}],
                   total=749.0, payment_method="prepaid", payment_ref="pay_R41x8821",
                   status="delivered", placed_at=now - timedelta(days=5),
@@ -589,14 +624,9 @@ def seed_sample_orders(store_id: str) -> int:
 
     with session_scope() as db:
         if db.scalar(select(Order).where(Order.store_id == store_id)) is not None:
-            # Already seeded. Clear the disputes a previous demo run left behind:
-            # each one counts as a recent claim against the same buyer, so by the
-            # fourth run an honest demo customer scores as a repeat claimer and
-            # the first thing anyone sees is an escalation.
-            for row in db.scalars(select(Dispute).where(
-                    Dispute.store_id == store_id,
-                    Dispute.buyer_id.like("by_demo_%"))).all():
-                db.delete(row)
+            # Already seeded, and this runs on every storefront visit, so it must
+            # not touch anything the merchant has since done. Deleting their
+            # disputes here wiped the whole dashboard on every page load.
             return 0
 
         # A ₹500 cap sends even the ₹749 kurti to a human, so the very first
@@ -626,7 +656,7 @@ def seed_sample_orders(store_id: str) -> int:
             ("by_demo_asha", "Cotton Floor Cushion", 1150.0, "product_cushion", 120),
             ("by_demo_asha", "Ceramic Table Lamp", 1899.0, "product_lamp", 80),
             ("by_demo_asha", "Wireless Earbuds", 1499.0, "product_earbuds", 45),
-            ("by_demo_kiran", "Cotton Kurti Set", 749.0, "product_kurti", 30),
+            ("by_demo_kiran", "Dusty Rose Joggers", 749.0, "product_kurti", 30),
         ]):
             placed = now - timedelta(days=days)
             db.add(Order(
@@ -642,7 +672,7 @@ def seed_sample_orders(store_id: str) -> int:
                                   "status": "delivered"}]))
 
         specs = [
-            ("DEMO-101", "by_demo_asha", "Cotton Kurti Set", "Rust / M", 749.0,
+            ("DEMO-101", "by_demo_asha", "Dusty Rose Joggers", "Rose / M", 749.0,
              "product_kurti", "KRT-RST-M", True, 6),
             ("DEMO-102", "by_demo_asha", "Handloom Silk Saree", "Deep Plum", 4200.0,
              "product_saree", "SAR-SLK-01", True, 30),

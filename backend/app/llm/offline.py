@@ -161,9 +161,15 @@ def _evidence(ctx: dict) -> dict:
         "serial_match": serial_match,
         "challenge_satisfied": challenge_ok,
         "forensics_flags": flags,
-        "notes": ("Evidence captured live against a server-issued challenge."
-                  if tier == "attested_live" else
-                  "Uploaded file: provenance could not be established."),
+        # No vision here, so there is nothing honest to say about what the
+        # photograph shows. Null, not True: claiming a match this provider
+        # cannot see would be the one lie the whole product cannot afford.
+        "content_match": None,
+        "observed": "",
+        "notes": ("Provenance checked in code; image contents were not read by "
+                  "this provider. " + ("Captured live against a server-issued "
+                  "challenge." if tier == "attested_live" else
+                  "Uploaded file: provenance could not be established.")),
         "_provider": "offline",
     }
 

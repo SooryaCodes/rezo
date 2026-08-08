@@ -358,6 +358,38 @@ async def add_sample_orders(store_id: str):
     return {"created": created}
 
 
+@router.delete("/stores/{store_id}/demo-cases")
+async def clear_demo_cases(store_id: str):
+    """Remove the cases the seeded demo customers filed.
+
+    Every dispute counts as a recent claim against the buyer who filed it, so
+    after a few practice runs an honest demo customer starts scoring as a repeat
+    claimer. Clearing them is a deliberate act, never a side effect of loading a
+    page, and it takes the refunds and audit rows with it: leaving those behind
+    is how analytics ends up reporting money refunded on zero disputes.
+    """
+    def _clear() -> dict:
+        from sqlalchemy import select as _select
+
+        from ..db.models import AuditEntry, Dispute, Evidence, RefundLedger
+        from ..db.session import session_scope
+
+        with session_scope() as db:
+            rows = db.scalars(_select(Dispute).where(
+                Dispute.store_id == store_id,
+                Dispute.buyer_id.like("by_demo_%"))).all()
+            ids = [r.id for r in rows]
+            for model in (RefundLedger, AuditEntry, Evidence):
+                for extra in db.scalars(_select(model).where(
+                        model.dispute_id.in_(ids))).all() if ids else []:
+                    db.delete(extra)
+            for row in rows:
+                db.delete(row)
+            return {"cleared": len(ids)}
+
+    return await run_in_threadpool(_clear)
+
+
 @router.post("/demo/reset")
 async def reset_demo():
     """Return the environment to its seeded state.

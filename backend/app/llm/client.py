@@ -113,13 +113,30 @@ class LLMClient:
         self.usage = Usage()
 
     # ------------------------------------------------------------------
+    # Which model names each provider will actually accept. A name from the
+    # wrong family is not a slow path or a degraded answer: the request is
+    # rejected, the call falls back to the rule-based provider, and the agent
+    # silently stops doing the thing it exists to do.
+    _PREFIX = {"anthropic": "claude", "gemini": "gemini", "openai": "gpt"}
+
     def model_for(self, agent: str) -> str:
         if self.provider == "offline":
             return "offline"
         tier = AGENT_TIER.get(agent, "fast")
-        return {"reasoning": settings.model_reasoning,
-                "fast": settings.model_fast,
-                "vision": settings.model_vision}[tier]
+        chosen = {"reasoning": settings.model_reasoning,
+                  "fast": settings.model_fast,
+                  "vision": settings.model_vision}[tier]
+
+        # The vision default names a Gemini model. Sent to Anthropic it fails,
+        # and the Evidence Agent falls back to metadata rules without ever
+        # opening the photograph, which is exactly the check the product is
+        # built around. Where the configured name does not belong to the active
+        # provider, use that provider's strongest model instead: Claude reads
+        # images perfectly well.
+        prefix = self._PREFIX.get(self.provider)
+        if prefix and not chosen.startswith(prefix):
+            return settings.model_reasoning
+        return chosen
 
     def complete_json(self, *, agent: str, system: str, user: str,
                       schema: dict, images: list[str] | None = None,
