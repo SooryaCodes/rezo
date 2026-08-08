@@ -207,7 +207,32 @@ CLOTHING_CLAUSES_V1 = [
 # sample media
 # --------------------------------------------------------------------------
 
-def _product_image(path, label: str, rgb: tuple[int, int, int]) -> None:
+# Real product photography, fetched once and cached on disk. A flat coloured
+# square with the product name written on it reads as a placeholder, and a demo
+# that looks unfinished gets judged as unfinished.
+PRODUCT_PHOTOS = {
+    "kurti": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80",
+    "saree": "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=600&q=80",
+    "earbuds": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&q=80",
+    "cushion": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80",
+    "lamp": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80",
+}
+
+
+def _product_image(path, label: str, rgb: tuple[int, int, int],
+                   key: str = "") -> None:
+    url = PRODUCT_PHOTOS.get(key)
+    if url:
+        try:
+            import httpx
+            data = httpx.get(url, timeout=12.0, follow_redirects=True).content
+            if len(data) > 2000:
+                path.write_bytes(data)
+                return
+        except Exception:
+            # Offline, or the photo host is down. A demo must still seed, so
+            # fall through to the drawn placeholder rather than failing.
+            pass
     img = Image.new("RGB", (480, 480), rgb)
     d = ImageDraw.Draw(img)
     d.rectangle([24, 24, 456, 456], outline=(255, 255, 255), width=3)
@@ -265,7 +290,7 @@ def seed_media() -> dict[str, str]:
     for key, label, rgb in products:
         p = base / f"product_{key}.jpg"
         if not p.exists():
-            _product_image(p, label, rgb)
+            _product_image(p, label, rgb, key)
         # Stored relative to the media root, because this value ends up in an
         # order row and is served as a URL. An absolute filesystem path here
         # made every product image 404 on the storefront.

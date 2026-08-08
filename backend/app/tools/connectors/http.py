@@ -23,7 +23,7 @@ TIMEOUT = httpx.Timeout(10.0, connect=4.0)
 
 
 def sign(secret: str, timestamp: str, body: str) -> str:
-    """Signature scheme documented for merchants in docs/INTEGRATION.md."""
+    """Signature scheme published to merchants on the /docs integration page."""
     payload = f"{timestamp}.{body}".encode()
     return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 

@@ -53,7 +53,7 @@ export default function ArbitrationPage() {
       setOpen(null);
       load();
     } catch (err: any) {
-      toast(err?.message ?? "Could not record the ruling", "bad");
+      toast(err?.message ?? "Could not record the ruling", "err");
     } finally {
       setWorking(false);
     }

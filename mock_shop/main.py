@@ -316,6 +316,19 @@ async def payouts(request: Request):
             "amount": body.get("amount"), "expires_in_hours": 48}
 
 
+@app.post("/rezo/reset")
+async def reset(request: Request):
+    """Clear this merchant's books so a demo can be run twice.
+
+    Signed like everything else: a stranger must not be able to wipe a
+    merchant's refund ledger by knowing a URL.
+    """
+    await verify(request)
+    REFUNDS.clear()
+    NOTIFICATIONS.clear()
+    return {"reset": True}
+
+
 # ── a window into what the merchant saw, for the demo ──────────────────────
 
 @app.get("/inspect")

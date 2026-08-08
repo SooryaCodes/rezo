@@ -37,6 +37,31 @@ function WidgetInner() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const stopStream = useRef<(() => void) | null>(null);
 
+  /* ── an open case survives a refresh ──────────────────────────────────
+   * The dispute already exists on the server; losing the id in the tab was the
+   * only thing that made a reload look like the conversation had been thrown
+   * away. Keyed by order, so two orders keep two separate threads. */
+  const threadKey = `rezo:thread:${storeId}:${orderId}`;
+
+  useEffect(() => {
+    const existing = typeof window !== "undefined"
+      ? window.sessionStorage.getItem(threadKey) : null;
+    if (!existing) return;
+    api.dispute(existing)
+      .then((d) => {
+        setDispute(d);
+        setMessages(d.messages
+          .filter((m) => m.content)
+          .map((m) => ({ role: m.role === "buyer" ? "buyer" : "agent",
+                         content: m.content })));
+        if (d.status !== "closed") {
+          stopStream.current = streamEvents(d.dispute_id, onEvents);
+        }
+      })
+      .catch(() => window.sessionStorage.removeItem(threadKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadKey]);
+
   /* ── load the order so the first message already knows the context ───── */
   useEffect(() => {
     api.order(orderId)
@@ -44,9 +69,10 @@ function WidgetInner() {
         setOrder(o);
         const item = o.items[0];
         const first = (o.buyer?.name || "there").split(" ")[0];
-        setMessages([{
+        setMessages((current) => current.length ? current : [{
           role: "agent",
-          content: `Hi ${first}. I can see your ${item?.title ?? "order"}. What went wrong with it?`,
+          content: `Hi ${first}. I can see your ${item?.title ?? "order"}, `
+                   + `${o.order_id}. What went wrong with it?`,
         }]);
       })
       .catch((e) => setLoadError(e.message));
@@ -97,6 +123,7 @@ function WidgetInner() {
     try {
       if (!dispute) {
         const result = await api.openDispute({ store_id: storeId, order_id: orderId, message: text });
+        window.sessionStorage.setItem(threadKey, result.dispute_id);
         stopStream.current = streamEvents(result.dispute_id, onEvents);
         absorb(result);
       } else {
@@ -243,7 +270,11 @@ function CaptureStage({ challenge, onSubmit, busy }: {
   onSubmit: (form: FormData) => void;
   busy: boolean;
 }) {
-  const steps = challenge.steps ?? [];
+  // A challenge with no steps would render a camera and no instruction, which
+  // is a dead end: the buyer sees themselves on screen and has nothing to press.
+  const steps = (challenge.steps?.length ? challenge.steps
+                 : ["Show the problem area up close",
+                    "Now show the whole item with its label"]);
   const [step, setStep] = useState(0);
   const [frames, setFrames] = useState<File[]>([]);
   // Consent first. Calling getUserMedia on arrival throws a browser permission
@@ -306,6 +337,18 @@ function CaptureStage({ challenge, onSubmit, busy }: {
     }, "image/jpeg", 0.9);
   };
 
+  /** The buyer's own file. Goes in as an upload, which is the weakest tier:
+   *  provenance cannot be established for something that arrived from a camera
+   *  roll, so it unlocks less and is more likely to be read by a person. */
+  const uploadFile = (file: File | undefined) => {
+    if (!file) return;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    const form = new FormData();
+    form.append("files", file, file.name);
+    form.append("source", "upload");
+    onSubmit(form);
+  };
+
   const useSample = (sample: string, source: "live_capture" | "upload") => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     const form = new FormData();
@@ -340,10 +383,15 @@ function CaptureStage({ challenge, onSubmit, busy }: {
           <Button variant="primary" className="flex-1" onClick={() => setConsented(true)}>
             Allow camera
           </Button>
-          <Button className="flex-1" disabled={busy}
-                  onClick={() => useSample("evidence_authentic.jpg", "upload")}>
-            Send a photo instead
-          </Button>
+          <label className="flex-1">
+            <input type="file" accept="image/*" className="sr-only" disabled={busy}
+                   onChange={(e) => uploadFile(e.target.files?.[0])} />
+            <span className="flex h-9 cursor-pointer items-center justify-center rounded-lg
+                             border border-line-strong bg-surface-2 px-3 text-sm text-ink
+                             shadow-[0_1px_2px_rgba(17,17,20,.05)]">
+              Send a photo instead
+            </span>
+          </label>
         </div>
         <p className="px-4 pb-4 text-xs text-ink-3">
           A sent photo still works — it just unlocks less on its own, so a person may take
@@ -357,7 +405,7 @@ function CaptureStage({ challenge, onSubmit, busy }: {
     <div className="border border-line rounded-2xl overflow-hidden bg-surface-2">
       {cameraReady !== false && (
         <video ref={videoRef} playsInline muted autoPlay
-               className="w-full aspect-[3/4] object-cover bg-black block" />
+               className="w-full max-h-[46vh] aspect-[3/4] object-cover bg-black block" />
       )}
 
       <div className="px-4 py-3 flex flex-col gap-1.5 border-t border-line bg-surface-1">
@@ -370,10 +418,11 @@ function CaptureStage({ challenge, onSubmit, busy }: {
           cannot answer it.
         </p>
 
-        {cameraReady === true && (
-          <Button variant="primary" block onClick={capture} disabled={busy || left === 0}
+        {cameraReady !== false && (
+          <Button variant="primary" block onClick={capture}
+                  disabled={busy || left === 0 || cameraReady === null}
                   className="mt-1">
-            Capture step {step + 1}
+            {cameraReady === null ? "Opening your camera…" : `Capture step ${step + 1}`}
           </Button>
         )}
         {cameraReady === false && (
@@ -383,15 +432,39 @@ function CaptureStage({ challenge, onSubmit, busy }: {
           </p>
         )}
 
-        <div className="flex gap-2 mt-1">
-          <Button variant="ghost" size="sm" className="flex-1" disabled={busy}
-                  onClick={() => useSample("evidence_authentic.jpg", "live_capture")}>
-            Use a real photo
-          </Button>
-          <Button variant="ghost" size="sm" className="flex-1" disabled={busy}
-                  onClick={() => useSample("evidence_generated.png", "upload")}>
-            Use an AI-generated one
-          </Button>
+        <div className="mt-1 flex gap-2">
+          <label className="flex-1">
+            <input type="file" accept="image/*" capture="environment" className="sr-only"
+                   disabled={busy} onChange={(e) => uploadFile(e.target.files?.[0])} />
+            <span className="flex h-9 cursor-pointer items-center justify-center rounded-lg
+                             border border-line-strong bg-surface-2 px-3 text-sm text-ink">
+              Take a photo
+            </span>
+          </label>
+          <label className="flex-1">
+            <input type="file" accept="image/*" className="sr-only" disabled={busy}
+                   onChange={(e) => uploadFile(e.target.files?.[0])} />
+            <span className="flex h-9 cursor-pointer items-center justify-center rounded-lg
+                             border border-line-strong bg-surface-2 px-3 text-sm text-ink">
+              Choose a file
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-2 border-t border-line pt-2">
+          <p className="text-2xs uppercase tracking-wide text-ink-3">
+            No camera here? Try it with our samples
+          </p>
+          <div className="flex gap-2 mt-1.5">
+            <Button variant="ghost" size="sm" className="flex-1" disabled={busy}
+                    onClick={() => useSample("evidence_authentic.jpg", "live_capture")}>
+              A real photo
+            </Button>
+            <Button variant="ghost" size="sm" className="flex-1" disabled={busy}
+                    onClick={() => useSample("evidence_generated.png", "upload")}>
+              An AI-generated one
+            </Button>
+          </div>
         </div>
       </div>
     </div>

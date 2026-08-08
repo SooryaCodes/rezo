@@ -32,14 +32,28 @@ export default function StorePage() {
     return [...seen.entries()];
   }, [orders, storeId]);
 
+  // Default to the whole store. Landing on a single customer's one order made
+  // the storefront look empty and hid every scenario worth trying.
   useEffect(() => {
-    if (buyers.length && !buyers.some(([id]) => id === buyerId)) setBuyerId(buyers[0][0]);
+    if (buyerId && !buyers.some(([id]) => id === buyerId)) setBuyerId("");
   }, [buyers, buyerId]);
 
   const visible = (orders ?? []).filter(
     (o) => o.store_id === storeId && (!buyerId || o.buyer_id === buyerId));
 
   const storeName = stores.find((s) => s.id === storeId)?.name ?? "Store";
+
+  // Each seeded order exists to exercise one behaviour. Saying so turns a list
+  // of products into a list of things you can actually try.
+  const TRY: Record<string, string> = {
+    "ORD-2041": "Report damage — settles on its own, under the cap",
+    "ORD-2042": "Upload an AI-generated photo — it gets caught",
+    "ORD-2043": "Try telling the agent to ignore its rules",
+    "ORD-2044": "Report damage — too big to auto-approve, waits for the seller",
+    "ORD-2045": "Stalled 21 days — the watchdog opens this one without being asked",
+    "NW-88120": "A store on its own backend, reached over signed HTTP",
+    "NW-88121": "Undelivered for 18 days at an external merchant",
+  };
 
   return (
     <>
@@ -49,11 +63,13 @@ export default function StorePage() {
             <Brand label={false} />
             <span className="text-ink-4">/</span>
             <Select value={storeId} onChange={setStoreId} className="w-[190px]"
-                    options={stores.map((s) => ({ value: s.id, label: s.name }))} />
+                    options={stores.filter((s) => (orders ?? []).some((o) => o.store_id === s.id))
+                                   .map((s) => ({ value: s.id, label: s.name }))} />
           </div>
           <div className="flex items-center gap-2">
-            <Select value={buyerId} onChange={setBuyerId} className="w-[170px]"
-                    options={buyers.map(([id, name]) => ({ value: id, label: name }))} />
+            <Select value={buyerId} onChange={setBuyerId} className="w-[185px]"
+                    options={[{ value: "", label: "All customers" },
+                              ...buyers.map(([id, name]) => ({ value: id, label: name }))]} />
           </div>
         </div>
       </nav>
@@ -74,7 +90,7 @@ export default function StorePage() {
 
           {orders !== null && visible.length === 0 && (
             <EmptyState glyph="◻" title="No orders here"
-              body="This buyer has not ordered from this store. Try another pairing above." />
+              body="Nothing matches this filter. Switch to All customers, or pick another store." />
           )}
 
           <div className="divide-y divide-line-subtle">
@@ -115,6 +131,10 @@ export default function StorePage() {
                       </div>
                       <span>{o.courier} {o.tracking_id}</span>
                     </div>
+
+                    {TRY[o.order_id] && (
+                      <p className="mt-2 text-xs text-ink-3">{TRY[o.order_id]}</p>
+                    )}
 
                     <div className="flex items-center gap-3 mt-3">
                       <Button size="sm"

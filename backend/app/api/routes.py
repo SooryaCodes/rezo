@@ -313,6 +313,39 @@ def platform_queue():
     return svc.platform_queue()
 
 
+def _reset_external_merchants() -> None:
+    """Clear the books of any store that keeps its own.
+
+    A demo is run more than once. Reseeding our side while an external merchant
+    still holds last run's refunds is how the second demo shows a refund that
+    was never issued during it.
+    """
+    from datetime import datetime, timezone
+
+    import httpx
+
+    from ..db.models import Store
+    from ..db.session import session_scope
+    from ..tools.connectors.http import sign
+
+    with session_scope() as db:
+        targets = [(s.connector_base_url, s.connector_secret, s.id)
+                   for s in db.query(Store).filter(Store.connector == "http").all()
+                   if s.connector_base_url]
+
+    for base, secret, store_id in targets:
+        body = "{}"
+        ts = str(int(datetime.now(timezone.utc).timestamp()))
+        try:
+            httpx.post(f"{base.rstrip('/')}/rezo/reset", content=body, timeout=5.0,
+                       headers={"Content-Type": "application/json",
+                                "X-Rezo-Store": store_id, "X-Rezo-Timestamp": ts,
+                                "X-Rezo-Signature": sign(secret or "", ts, body)})
+        except httpx.HTTPError:
+            # A merchant that is down must not stop our own reset.
+            pass
+
+
 @router.post("/demo/reset")
 async def reset_demo():
     """Return the environment to its seeded state.
@@ -326,6 +359,7 @@ async def reset_demo():
 
     def _reset():
         result = seed(reset=True)
+        _reset_external_merchants()
         graph_module._engine = None  # drop checkpoints with the data
         ev._STREAMS.clear()
         return result

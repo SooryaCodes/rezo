@@ -8,6 +8,7 @@ by hand.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 import httpx
 
@@ -22,7 +23,7 @@ PROBES = {
     "get_order": ("GET", "/rezo/orders/{order_id}"),
     "get_delivery_status": ("GET", "/rezo/orders/{order_id}/delivery"),
     "get_customer_history": ("GET", "/rezo/buyers/{buyer_id}/history"),
-    "get_policy_pack": ("GET", "/rezo/policy?as_of={now}"),
+    "get_policy_pack": ("GET", "/rezo/policy?as_of={as_of}"),
     "issue_refund": ("POST", "/rezo/refunds"),          # probed with dry_run
     "notify": ("POST", "/rezo/notify"),                 # probed with dry_run
     "create_return_pickup": ("POST", "/rezo/returns"),
@@ -65,8 +66,11 @@ def status(store_id: str) -> dict:
         for name, (method, template) in PROBES.items():
             if name not in REQUIRED_CAPABILITIES + OPTIONAL_CAPABILITIES:
                 continue
-            path = template.format(order_id=order_id, buyer_id=buyer_id,
-                                   now=datetime.now(timezone.utc).isoformat())
+            # URL-encoded: a raw + in an ISO offset decodes to a space, and a
+            # merchant that parses dates strictly would reject the probe.
+            path = template.format(
+                order_id=order_id, buyer_id=buyer_id,
+                as_of=quote(datetime.now(timezone.utc).isoformat(), safe=""))
             checks.append(_probe(base, store.connector_secret or "", store_id,
                                  name, method, path))
 
