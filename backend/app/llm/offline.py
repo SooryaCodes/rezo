@@ -228,16 +228,18 @@ def _fraud(ctx: dict) -> dict:
         score += 0.2
         reasons.append(f"claims across {s['stores_claimed_against']} different stores")
 
-    age = s.get("account_age_days", 999)
-    if age < 30:
+    age = s.get("account_age_days")
+    if age is None:
+        reasons.append("no purchase history on record, which is not held against them")
+    elif age < 30:
         score += 0.2
         reasons.append(f"account is only {age} days old")
     elif age > 365 and claims_60d == 0:
         score -= 0.1
         reasons.append("long-standing account with no prior claims")
 
-    ratio = s.get("claim_to_lifetime_ratio", 0)
-    if ratio > 0.6:
+    ratio = s.get("claim_to_lifetime_ratio")
+    if ratio is not None and ratio > 0.6:
         score += 0.15
         reasons.append("claim value is high relative to lifetime spend")
 

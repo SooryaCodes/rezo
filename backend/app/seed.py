@@ -12,6 +12,7 @@ orders positioned for the four demo scenarios:
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -291,7 +292,14 @@ def _key(prefix: str, store: str) -> str:
 # The workspaces this file owns. A reset touches these and nothing else, so a
 # real merchant account created through sign-up is never destroyed by someone
 # clicking "reset demo data".
-SAMPLE_STORE_IDS = ("st_rehana", "st_techkart", "st_urbanleaf")
+SAMPLE_STORE_IDS = ("st_rehana", "st_techkart", "st_urbanleaf", "st_northwind")
+
+# The external merchant. Its orders, policy and refunds live in its own service;
+# Rezo reaches them over signed HTTP and holds none of its data. This is the
+# integration path a real merchant takes, wired up so it can actually be run
+# rather than only described.
+NORTHWIND_URL = os.getenv("REZO_NORTHWIND_URL", "http://127.0.0.1:8001")
+NORTHWIND_SECRET = os.getenv("REZO_SHARED_SECRET", "whsec_northwind_demo_2026")
 
 
 def seed(reset: bool = False) -> dict:
@@ -357,6 +365,18 @@ def seed(reset: bool = False) -> dict:
                               "restock": False, "upi_payout": True, "cod_only": True},
                 connector="local", onboarded=True,
                 publishable_key=_key("pk", "st_urbanleaf"), secret_key=_key("sk", "st_urbanleaf"),
+            ),
+            Store(
+                id="st_northwind", name="Northwind Supply", category="home",
+                auto_approve_cap=5000.0, fraud_threshold=0.6,
+                capabilities={"gateway_refund": True, "courier_pickup": False,
+                              "restock": False, "upi_payout": True, "cod_only": False},
+                connector="http",
+                connector_base_url=NORTHWIND_URL,
+                connector_secret=NORTHWIND_SECRET,
+                onboarded=True,
+                publishable_key=_key("pk", "st_northwind"),
+                secret_key=_key("sk", "st_northwind"),
             ),
         ]
         db.add_all(stores)

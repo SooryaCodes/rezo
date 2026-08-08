@@ -13,6 +13,7 @@ import hmac
 import json
 import time
 from datetime import datetime
+from urllib.parse import quote
 
 import httpx
 
@@ -72,7 +73,11 @@ class HttpConnector:
     def get_policy_pack(self, purchase_date) -> dict:
         if isinstance(purchase_date, datetime):
             purchase_date = purchase_date.isoformat()
-        return self._call("GET", f"/rezo/policy?as_of={purchase_date}")
+        # Quoted, because an ISO timestamp ends in "+00:00" and a raw + in a
+        # query string decodes to a space. The merchant would fail to parse it,
+        # quietly serve today's pack, and the dispute would be judged under
+        # rules that did not exist when the order was placed.
+        return self._call("GET", f"/rezo/policy?as_of={quote(str(purchase_date), safe='')}")
 
     def issue_refund(self, dispute_id: str, amount: float, method: str) -> dict:
         return self._call("POST", "/rezo/refunds",

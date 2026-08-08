@@ -159,8 +159,10 @@ def get_dispute(dispute_id: str) -> dict:
         "dispute_id": row.id,
         "store": {"id": store.id, "name": store.name,
                   "auto_approve_cap": store.auto_approve_cap} if store else {},
-        "buyer": {"id": buyer.id, "name": buyer.name,
-                  "language": buyer.language} if buyer else {},
+        # Buyers at external stores are not in our table; the order payload the
+        # merchant returned is the authority for them.
+        "buyer": ({"id": buyer.id, "name": buyer.name, "language": buyer.language}
+                  if buyer else (state.get("order") or {}).get("buyer") or {}),
         "order_id": row.order_id,
         "claim_type": row.claim_type,
         "claim_value": row.claim_value,

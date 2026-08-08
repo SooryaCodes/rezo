@@ -428,15 +428,30 @@ def fraud_node(state: dict) -> dict:
 
     evidence = state.get("evidence", {}) or {}
     prior_signals = (state.get("fraud") or {}).get("raw_signals", {})
-    lifetime = max(1.0, float(platform_view.get("lifetime_value", 0) or 1))
+
+    # A buyer at an external store is not on our network, so the platform view
+    # is empty. Reading that emptiness as zero orders and zero lifetime spend
+    # turns a nine-order customer into a ratio of 3450 and a fraud score of
+    # 0.92 — absence of history is not evidence against someone. Fall back to
+    # what the merchant's own backend knows, and where neither side knows
+    # anything, say so instead of inventing a number.
+    on_network = bool(platform_view.get("known"))
+    history = platform_view if on_network else store_view
+    lifetime = float(history.get("lifetime_value", 0) or 0)
+    orders = int(history.get("orders_count", history.get("orders_total", 0)) or 0)
+    has_history = orders > 0 or lifetime > 0
 
     signals = {
+        "history_source": "platform" if on_network else "merchant",
+        "has_purchase_history": has_history,
         "claims_last_60d": platform_view.get("claims_last_60d", 0),
         "claims_all_time": platform_view.get("claims_all_time", 0),
         "stores_claimed_against": platform_view.get("stores_claimed_against", 0),
-        "account_age_days": platform_view.get("account_age_days", 999),
-        "orders_total": platform_view.get("orders_total", 0),
-        "claim_to_lifetime_ratio": round(float(state.get("claim_value", 0)) / lifetime, 2),
+        "account_age_days": history.get("account_age_days") if has_history else None,
+        "orders_total": orders,
+        "claim_to_lifetime_ratio": (
+            round(float(state.get("claim_value", 0)) / lifetime, 2)
+            if lifetime > 0 else None),
         "linked_accounts_same_address": platform_view.get("linked_accounts_same_address", 0),
         "store_disputes": store_view.get("disputes_count", 0),
         "evidence_flags": evidence.get("forensics_flags", []),
@@ -746,7 +761,13 @@ def execute_node(state: dict) -> dict:
         elif outcome == "replacement":
             pickup = shop.create_return_pickup(state["store_id"], did, state["order_id"])
             actions["return_pickup"] = pickup
-            actions["steps"].append("Replacement dispatched; return arranged")
+            # Not every store has a courier integration. Saying a pickup was
+            # arranged when the merchant answered 501 would leave the buyer
+            # waiting at home for a van that is never coming.
+            actions["steps"].append(
+                "Replacement dispatched; return pickup scheduled"
+                if pickup.get("available")
+                else "Replacement dispatched; return instructions sent to the buyer")
             events.emit(did, "execution", "tool", "create_return_pickup()", pickup)
             for item in state["order"].get("items", []):
                 actions["restock"] = shop.restock_item(state["store_id"],

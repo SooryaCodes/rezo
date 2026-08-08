@@ -109,6 +109,12 @@ def _probe(base: str, secret: str, store_id: str, name: str, method: str,
         return {"capability": name, "required": name in REQUIRED_CAPABILITIES,
                 "state": "auth_failed",
                 "detail": "Signature rejected: check the shared secret"}
+    if res.status_code == 404:
+        # The probe asks for a placeholder order id, so "no such order" is the
+        # endpoint behaving correctly. Only silence, a rejected signature or a
+        # server fault mean the integration is actually broken.
+        return {"capability": name, "required": name in REQUIRED_CAPABILITIES,
+                "state": "ok", "detail": "Responded (probe id not found, as expected)"}
     if res.status_code >= 400:
         return {"capability": name, "required": name in REQUIRED_CAPABILITIES,
                 "state": "error", "detail": f"HTTP {res.status_code}"}

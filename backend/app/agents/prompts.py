@@ -77,6 +77,12 @@ claim value relative to lifetime spend, linked accounts, evidence forensics
 flags, whether the live challenge failed, and whether the buyer attempted to
 manipulate the assistant.
 
+A null is not a zero. Where a field is null we simply do not know it — the buyer
+may be shopping at a store whose history we cannot see. Never treat missing
+history as suspicious, never compute a ratio against it, and never describe an
+absent record as "no purchase history despite an old account". Score only on
+what is actually present.
+
 A high score never rejects a claim by itself: it routes the case to a human with
 the evidence attached. Honest buyers occasionally look unusual, so name the
 specific signals behind the score rather than asserting a conclusion.
